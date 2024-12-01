@@ -377,9 +377,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             await asyncio.sleep(120)
             await d.delete()
             return
-
-        await message.reply_text("<b>𝙼𝚘𝚟𝚒𝚎 𝚂𝚒𝚝𝚎: cinema4u.xyz - 𝙰𝚕𝚕 𝚝𝚢𝚙𝚎𝚜 𝚘𝚏 𝚖𝚘𝚟𝚒𝚎𝚜 𝚊𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎!</b>", parse_mode=enums.ParseMode.HTML)
-        
+            
         file_id = query.data.split('#', 1)[1]
         NOBITA = await client.send_cached_media(
             chat_id=BIN_CHANNEL,
