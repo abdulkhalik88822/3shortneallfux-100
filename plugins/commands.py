@@ -87,7 +87,7 @@ async def start(client:Client, message):
             parse_mode=enums.ParseMode.HTML
         )
 
-        await message.reply_text("<b>𝙼𝚘𝚟𝚒𝚎 𝚂𝚒𝚝𝚎: cinema4u.xyz - 𝙰𝚕𝚕 𝚝𝚢𝚙𝚎𝚜 𝚘𝚏 𝚖𝚘𝚟𝚒𝚎𝚜 𝚊𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎!</b>", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("<b>𝙼𝚘𝚟𝚒𝚎 𝚂𝚒𝚝𝚎: movietop.link - 𝙰𝚕𝚕 𝚝𝚢𝚙𝚎𝚜 𝚘𝚏 𝚖𝚘𝚟𝚒𝚎𝚜 𝚊𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎!</b>", parse_mode=enums.ParseMode.HTML)
         
         return
 
@@ -119,7 +119,7 @@ async def start(client:Client, message):
             parse_mode=enums.ParseMode.HTML
         )
 
-        await message.reply_text("<b>𝙼𝚘𝚟𝚒𝚎 𝚂𝚒𝚝𝚎: cinema4u.xyz - 𝙰𝚕𝚕 𝚝𝚢𝚙𝚎𝚜 𝚘𝚏 𝚖𝚘𝚟𝚒𝚎𝚜 𝚊𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎!</b>", parse_mode=enums.ParseMode.HTML)
+        await message.reply_text("<b>𝙼𝚘𝚟𝚒𝚎 𝚂𝚒𝚝𝚎: movietop.link - 𝙰𝚕𝚕 𝚝𝚢𝚙𝚎𝚜 𝚘𝚏 𝚖𝚘𝚟𝚒𝚎𝚜 𝚊𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎!</b>", parse_mode=enums.ParseMode.HTML)
         
         return
 
