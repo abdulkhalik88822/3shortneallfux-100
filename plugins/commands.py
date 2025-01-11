@@ -133,7 +133,7 @@ async def start(client:Client, message):
     id = settings.get('fsub_id', AUTH_CHANNEL)
     channel = id
     if settings.get('fsub_id', AUTH_CHANNEL) and not await is_subscribed(client, message.from_user.id, channel):
-        invite_link = "https://t.me/+PzKgWVHpaqxlMGY1"
+        invite_link = "https://t.me/bots_up"
         btn = [[
                 InlineKeyboardButton("⛔️ ᴊᴏɪɴ ɴᴏᴡ ⛔️", url=invite_link)
                 ]]
