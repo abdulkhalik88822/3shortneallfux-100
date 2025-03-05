@@ -375,7 +375,7 @@ async def save_caption(client, message):
     try:
         caption = message.text.split(" ", 1)[1]
     except:
-        return await message.reply_text("<b><u>ɪɴᴠᴀɪʟᴅ ꜰᴏʀᴍᴀᴛ!!</u>\n\nᴜsᴇ ʟɪᴋᴇ ᴛʜɪs - </b>\n<code>/caption Join [Here](https://t.me/movie_hub_094)\n\nFILE : {file_name}\nSize : {file_size}</code>")
+        return await message.reply_text("<b><u>ɪɴᴠᴀɪʟᴅ ꜰᴏʀᴍᴀᴛ!!</u>\n\nᴜsᴇ ʟɪᴋᴇ ᴛʜɪs - </b>\n<code>/caption Join [Here](https://t.me/Bot_Discussion_Group_amk)\n\nFILE : {file_name}\nSize : {file_size}</code>")
     await save_group_settings(grp_id, 'caption', caption)
     await message.reply_text(f"<b>sᴜᴄᴄᴇssꜰᴜʟʟʏ ᴄʜᴀɴɢᴇᴅ ᴄᴀᴘᴛɪᴏɴ ꜰᴏʀ {title} ᴛᴏ\n\n{caption}</b>", disable_web_page_preview=True) 
     
@@ -397,7 +397,7 @@ async def tutorial(bot, message):
     try:
         tutorial = re.findall("(?P<url>https?://[^\s]+)", message.text)[0]
     except:
-        return await message.reply_text("<b><u><i>ɪɴᴠᴀɪʟᴅ ꜰᴏʀᴍᴀᴛ!!</i></u>\n\nᴜsᴇ ʟɪᴋᴇ ᴛʜɪs - </b>\n<code>/tutorial https://youtu.be/0c-i2Lol6LU</code>")
+        return await message.reply_text("<b><u><i>ɪɴᴠᴀɪʟᴅ ꜰᴏʀᴍᴀᴛ!!</i></u>\n\nᴜsᴇ ʟɪᴋᴇ ᴛʜɪs - </b>\n<code>/tutorial https://t.me/Bot_Discussion_Group_amk</code>")
     reply = await message.reply_text("<b>ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ...</b>")
     await save_group_settings(grpid, 'tutorial', tutorial)
     await reply.edit_text(f"<b>sᴜᴄᴄᴇssꜰᴜʟʟʏ ᴄʜᴀɴɢᴇᴅ ᴛᴜᴛᴏʀɪᴀʟ ꜰᴏʀ {title}</b>\n\nʟɪɴᴋ - {tutorial}", disable_web_page_preview=True)
