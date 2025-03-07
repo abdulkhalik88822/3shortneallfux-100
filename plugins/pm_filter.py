@@ -31,8 +31,8 @@ async def pm_text(bot, message):
     user_id = message.from_user.id
     if content.startswith("/") or content.startswith("#"): return  # ignore commands and hashtags
     await message.reply_text(
-         text="<b>ʜᴇʏ ᴅᴜᴅᴇ 😍 ,\n\nʏᴏᴜ ᴄᴀɴ'ᴛ ɢᴇᴛ ᴍᴏᴠɪᴇs ꜰʀᴏᴍ ʜᴇʀᴇ. ʀᴇǫᴜᴇsᴛ ᴏɴ ᴏᴜʀ <a href=https://t.me/movies_group7>ᴍᴏᴠɪᴇ ɢʀᴏᴜᴘ</a> ᴏʀ ᴄʟɪᴄᴋ ʀᴇǫᴜᴇsᴛ ʜᴇʀᴇ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ​👇</b>",   
-         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📝 ʀᴇǫᴜᴇsᴛ ʜᴇʀᴇ​ ", url=f"https://t.me/movies_group7")]])
+         text="<b>ʜᴇʏ ᴅᴜᴅᴇ 😍 ,\n\nʏᴏᴜ ᴄᴀɴ'ᴛ ɢᴇᴛ ᴍᴏᴠɪᴇs ꜰʀᴏᴍ ʜᴇʀᴇ. ʀᴇǫᴜᴇsᴛ ᴏɴ ᴏᴜʀ <a href=https://t.me/bots_up>ᴍᴏᴠɪᴇ ɢʀᴏᴜᴘ</a> ᴏʀ ᴄʟɪᴄᴋ ʀᴇǫᴜᴇsᴛ ʜᴇʀᴇ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ​👇</b>",   
+         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📝 ʀᴇǫᴜᴇsᴛ ʜᴇʀᴇ​ ", url=f"https://t.me/bots_up")]])
     )
 
 
@@ -456,7 +456,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
 	)
     elif query.data == "payment":
         buttons = [[
-            InlineKeyboardButton("ꜱᴇɴᴅ ᴘᴀʏᴍᴇɴᴛ ʀᴇᴄᴇɪᴘᴛ 🧾", url="https://t.me/shivacharan7773")
+            InlineKeyboardButton("ꜱᴇɴᴅ ᴘᴀʏᴍᴇɴᴛ ʀᴇᴄᴇɪᴘᴛ 🧾", url="https://t.me/Attitude2688")
         ]]
         reply_markup = InlineKeyboardMarkup(buttons) 
         await query.message.edit_text(
@@ -470,7 +470,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ]]
         reply_markup = InlineKeyboardMarkup(btn)
         await query.message.reply_photo(
-            photo="https://graph.org/file/26603c0bb8da681b2c70d.jpg",
+            photo="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg",
             caption=script.DONATE_TEXT,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
@@ -504,7 +504,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
             InlineKeyboardButton("QR CODE", callback_data = "qr"),
 	    InlineKeyboardButton("UPI ID", callback_data = "upi"),
 	],[
-            InlineKeyboardButton("🧛 Contact To Admin", url="https://t.me/shivacharan7773")
+            InlineKeyboardButton("🧛 Contact To Admin", url="https://t.me/Attitude2688")
 	],[
             InlineKeyboardButton("⇐ ʙᴀᴄᴋ", callback_data = "premium")
         ]]
@@ -522,14 +522,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
             InlineKeyboardButton("ᴘʟᴀᴛɪɴᴜᴍ", callback_data="platinum"),
             InlineKeyboardButton("ᴅɪᴀᴍᴏɴᴅ", callback_data="diamond")
         ],[
-            InlineKeyboardButton("📸 Sᴇɴᴅ Yᴏᴜʀ Pᴀʏᴍᴇɴᴛ Sᴄʀᴇᴇɴꜱʜᴏᴛ 📸", url="https://t.me/shivacharan7773")  
+            InlineKeyboardButton("📸 Sᴇɴᴅ Yᴏᴜʀ Pᴀʏᴍᴇɴᴛ Sᴄʀᴇᴇɴꜱʜᴏᴛ 📸", url="https://t.me/Attitude2688")  
         ],[
             InlineKeyboardButton("⇐ Back", callback_data="premium"),
-            InlineKeyboardButton("☏ ᴄᴏɴᴛᴀᴄᴛ", url=f"https://t.me/shivacharan7773")  
+            InlineKeyboardButton("☏ ᴄᴏɴᴛᴀᴄᴛ", url=f"https://t.me/Attitude2688")  
         ]]
         reply_markup = InlineKeyboardMarkup(btn)
         await query.message.reply_photo(
-            photo="https://graph.org/file/26603c0bb8da681b2c70d.jpg",
+            photo="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg",
             caption=script.KUNAL_TEXT,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
@@ -542,7 +542,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ]]
         reply_markup = InlineKeyboardMarkup(btn)
         await query.message.reply_photo(
-            photo="https://graph.org/file/26603c0bb8da681b2c70d.jpg",
+            photo="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg",
             caption=script.SILVER_TEXT,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
@@ -555,7 +555,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ]]
         reply_markup = InlineKeyboardMarkup(btn)
         await query.message.reply_photo(
-            photo="https://graph.org/file/26603c0bb8da681b2c70d.jpg",
+            photo="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg",
             caption=script.GOLDEN_TEXT,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
@@ -581,7 +581,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ]]
         reply_markup = InlineKeyboardMarkup(btn)
         await query.message.reply_photo(
-            photo="https://graph.org/file/26603c0bb8da681b2c70d.jpg",
+            photo="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg",
             caption=script.DIAMOND_TEXT,
             reply_markup=reply_markup,
             parse_mode=enums.ParseMode.HTML
