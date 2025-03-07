@@ -1,7 +1,7 @@
 import datetime
 import pytz
 from motor.motor_asyncio import AsyncIOMotorClient
-from info import IS_VERIFY, AUTH_CHANNEL, SHORTENER_WEBSITE3, SHORTENER_API3, THREE_VERIFY_GAP, LINK_MODE, FILE_CAPTION, TUTORIAL, TUTORIAL2, TUTORIAL3, DATABASE_NAME, DATABASE_URI, DATABASE_URI2, IMDB, IMDB_TEMPLATE, PROTECT_CONTENT, AUTO_DELETE, SPELL_CHECK, AUTO_FILTER, LOG_VR_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, TWO_VERIFY_GAP
+from info import IS_VERIFY, SHORTENER_WEBSITE3, SHORTENER_API3, THREE_VERIFY_GAP, LINK_MODE, FILE_CAPTION, TUTORIAL, DATABASE_NAME, DATABASE_URI, DATABASE_URI2, IMDB, IMDB_TEMPLATE, PROTECT_CONTENT, AUTO_DELETE, SPELL_CHECK, AUTO_FILTER, LOG_VR_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, TWO_VERIFY_GAP
 
 client = AsyncIOMotorClient(DATABASE_URI)
 mydb = client[DATABASE_NAME]
@@ -15,8 +15,6 @@ class Database:
             'template': IMDB_TEMPLATE,
             'caption': FILE_CAPTION,
             'tutorial': TUTORIAL,
-            'tutorial_two': TUTORIAL2,
-            'tutorial_three': TUTORIAL3,
             'shortner': SHORTENER_WEBSITE,
             'api': SHORTENER_API,
             'shortner_two': SHORTENER_WEBSITE2,
@@ -28,7 +26,6 @@ class Database:
             'verify_time': TWO_VERIFY_GAP,
             'shortner_three': SHORTENER_WEBSITE3,
             'api_three': SHORTENER_API3,
-            'fsub_id': AUTH_CHANNEL,
             'third_verify_time': THREE_VERIFY_GAP
     }
     
@@ -39,6 +36,7 @@ class Database:
         self.verify_id = mydb.verify_id
         self.users = mydb.uersz
         self.req = mydb.requests
+        self.groups = mydb.groupsz
 
     def new_user(self, id, name):
         return dict(
@@ -51,9 +49,12 @@ class Database:
         )
 
     async def get_settings(self, id):
-        chat = await self.grp.find_one({'id':int(id)})
+        chat = await self.grp.find_one({'id': int(id)})
         if chat:
-            return chat.get('settings', self.default)
+            settings = chat.get('settings', {})
+            for key, value in self.default.items():
+                settings[key] = settings.get(key, value)
+            return settings
         return self.default
 
     async def find_join_req(self, id):
@@ -268,4 +269,22 @@ class Database:
             {"id": user_id}, {"$set": {"expiry_time": None}}
         )
 
+    async def get_fsub_channel_id(self, grp_id):        
+        group_data = await self.groups.find_one({"id": grp_id})
+        if group_data:
+            fsub_id = group_data.get("fsub_id")
+            return fsub_id
+        return None   
+
+    async def get_group(self, grp_id):
+        group_data = await self.groups.find_one({"id": grp_id})
+        return group_data
+
+    async def update_group(self, group_data):
+        existing_group = await self.groups.find_one({"id": group_data["id"]})   
+        if existing_group:
+            await self.groups.update_one({"id": group_data["id"]}, {"$set": group_data})
+        else:
+            await self.groups.insert_one(group_data)
+        
 db = Database()
