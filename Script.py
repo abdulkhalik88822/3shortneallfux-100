@@ -1,15 +1,16 @@
 import os
 class script(object):
     
-    START_TXT = """<b>𝙹𝚊𝚢 𝚂𝚑𝚛𝚎𝚎 𝚁𝚊𝚖 🚩 {} {},
+    START_TXT = """<b>ʜᴇʏ {} {},
     
 🍿 <u>Welcome To The Worlds Coolest Search Engine On The Net</u>!...
 
-Here, You Can Watch Any Movie/Series By Just Typing Title Of A Film or Series..🔍
+ɪ ᴀᴍ ᴀ ᴘᴏᴡᴇʀꜰᴜʟ ᴀᴜᴛᴏ ꜰɪʟᴛᴇʀ ʙᴏᴛ ᴡɪᴛʜ ᴀᴅᴠᴀɴᴄᴇ ᴇᴀʀɴ ꜰᴇᴀᴛᴜʀᴇ.
+ʏᴏᴜ ᴄᴀɴ ᴜꜱᴇ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ ɪ ᴡɪʟʟ ɢɪᴠᴇ ᴀɴʏ ᴍᴏᴠɪᴇꜱ, ꜱᴇʀɪᴇꜱ ᴏʀ ᴀɴɪᴍᴇ ɪɴ ɢʀᴏᴜᴘ ʙʏ ʏᴏᴜʀ ᴄᴏɴɴᴇᴄᴛᴇᴅ ꜱʜᴏʀᴛɴᴇʀ...
 
-⚠️ watch @movies_group7 For More Information About How To...❓
+ʏᴏᴜʀ ɪᴅ
 
-🎊 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆: @moviehiap</b>"""
+🎊 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆: @Attitude2688</b>"""
     
     HELP_TXT = """<b>ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ʙᴜᴛᴛᴏɴꜱ ʙᴇʟᴏᴡ ᴛᴏ ɢᴇᴛ ᴅᴏᴄᴜᴍᴇɴᴛᴀᴛɪᴏɴ ᴀʙᴏᴜᴛ ꜱᴘᴇᴄɪꜰɪᴄ ᴍᴏᴅᴜʟᴇꜱ..</b>"""
     
@@ -60,7 +61,7 @@ User - {}"""
 ❗️ ʟᴀɴɢᴜᴀɢᴇ - {languages}</b>
 """
 
-    FILE_CAPTION = """<a href='https://t.me/aimoviefilterbot'><b>🗂️ ɴᴀᴍᴇ : {file_name}</b></a>"""
+    FILE_CAPTION = """<a href='https://t.me/DD_search_bot'><b>🗂️ ɴᴀᴍᴇ : {file_name}</b></a>"""
     
     RESTART_TXT = """<b>
 📅 Dᴀᴛᴇ : <code>{}</code>
@@ -97,34 +98,34 @@ User - {}"""
 
     👛 <b><u>You can donate through UPI</u>
 
-    👉 UPI ID:</b> <code>shivamcharan7773@okicici</code>"""
+    👉 UPI ID:</b> <code>8920863796@ptsbi</code>"""
     
     PAYMENT_TEXT = """<b><u>Confirm Payment</u> ✓
 
 Send Here Your Successfull Payment Screenshot.</b>"""
     
-    ILLEGAL_TEXT = """<b> जय श्री राम 🚩
+    ILLEGAL_TEXT = """<b> 👑🗃️🍿
     
 ⚜️ ᴘʟᴇᴀꜱᴇ ꜱᴇʟᴇᴄᴛ ʏᴏᴜʀ ᴘᴀʏᴍᴇɴᴛ ᴍᴇᴛʜᴏᴅ ᴀɴᴅ ᴘᴀʏ ᴀᴄᴄᴏʀᴅɪɴɢ ᴛᴏ ʏᴏᴜʀ ᴘʟᴀɴꜱ ᴀɴᴅ ᴇɴᴊᴏʏ ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴍᴇᴍʙᴇʀꜱʜɪᴘ!
 
-💵 ᴜᴘɪ ɪᴅ - <code>shivamcharan7773@okicici</code>
-🏦 Qʀ ᴄᴏᴅᴇ - <a href="https://telegra.ph//file/97acdf1518a76161d0f55.jpg">ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ꜱᴄᴀɴ</a>
+💵 ᴜᴘɪ ɪᴅ - <code>8920863796@ptsbi</code>
+🏦 Qʀ ᴄᴏᴅᴇ - <a href="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg">ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ꜱᴄᴀɴ</a>
 
 ‼️ ᴍᴜsᴛ sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ ᴀғᴛᴇʀ ᴘᴀʏᴍᴇɴᴛ.</b>"""
 
-    QR_TEXT = """<b>जय श्री राम 🚩
+    QR_TEXT = """<b>👑🗃️🍿
       
 ⚜️ ᴘᴀʏ ᴀᴍᴍᴏᴜɴᴛ ᴀᴄᴄᴏʀᴅɪɴɢ ᴛᴏ ʏᴏᴜʀ ᴘʟᴀɴ ᴀɴᴅ ᴇɴᴊᴏʏ ᴘʀᴇᴍɪᴜᴍ ᴍᴇᴍʙᴇʀꜱʜɪᴘ !
 
-🏦 Qʀ ᴄᴏᴅᴇ - <a href="https://telegra.ph//file/97acdf1518a76161d0f55.jpg">ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ꜱᴄᴀɴ</a>
+🏦 Qʀ ᴄᴏᴅᴇ - <a href="https://telegra.ph/file/e717ffdfb2394774e44f1.jpg">ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ꜱᴄᴀɴ</a>
 
 ‼️ ᴍᴜsᴛ sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ ᴀғᴛᴇʀ ᴘᴀʏᴍᴇɴᴛ.</b>"""
 
-    UPI_TEXT = """<b>जय श्री राम 🚩
+    UPI_TEXT = """<b> 👑🗃️🍿
       
 ⚜️ ᴘᴀʏ ᴀᴍᴍᴏᴜɴᴛ ᴀᴄᴄᴏʀᴅɪɴɢ ᴛᴏ ʏᴏᴜʀ ᴘʟᴀɴ ᴀɴᴅ ᴇɴᴊᴏʏ ᴘʀᴇᴍɪᴜᴍ ᴍᴇᴍʙᴇʀꜱʜɪᴘ !
 
-💵 ᴜᴘɪ ɪᴅ - <code>shivamcharan7773@okicici</code>
+💵 ᴜᴘɪ ɪᴅ - <code>8920863796@ptsbi</code>
 
 ‼️ ᴍᴜsᴛ sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ ᴀғᴛᴇʀ ᴘᴀʏᴍᴇɴᴛ.</b>"""
 
@@ -136,7 +137,7 @@ Send Here Your Successfull Payment Screenshot.</b>"""
 
     👛 <b><u>You can donate through UPI</u>
 
-    👉 UPI ID:</b> <code>shivamcharan7773@okicici</b>"""
+    👉 UPI ID:</b> <code>8920863796@ptsbi</b>"""
 
     
     SILVER_TEXT ="""<b>Hii Brother 👋
@@ -177,7 +178,7 @@ Send Here Your Successfull Payment Screenshot.</b>"""
     
     KUNAL_TEXT = """<b>ᴄʜᴏᴏsᴇ ʏᴏᴜʀ sᴜɪᴛᴀʙʟᴇ ᴘʟᴀɴ & ᴘᴀʏ ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ғᴇᴇs ᴜsɪɴɢ ᴀɴʏ ᴜᴘɪ ᴀᴘᴘ. ɴᴏ ɴᴇᴇᴅ ᴛᴏ ᴇɴᴛᴇʀ ᴜᴘɪ ɪᴅ & ᴘʟᴀɴ ᴀᴍᴏᴜɴᴛ ᴍᴀɴᴜᴀʟʟʏ, ᴊᴜsᴛ ᴄʟɪᴄᴋ ᴏɴ ʙᴇʟᴏᴡ ᴘʟᴀɴ ʙᴜᴛᴛᴏɴ.
 
-🏦 ᴜᴘɪ ɪᴅ ➩ <code>shivamcharan7773@okicici</code> [ɪғ ʀᴇǫᴜɪʀᴇᴅ]
+🏦 ᴜᴘɪ ɪᴅ ➩ <code>8920863796@ptsbi</code> [ɪғ ʀᴇǫᴜɪʀᴇᴅ]
  
  ‼️ ᴍᴜsᴛ sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ ᴀғᴛᴇʀ ᴘᴀʏᴍᴇɴᴛ & ᴘʟᴇᴀsᴇ ɢɪᴠᴇ ᴍᴇ sᴏᴍᴇ ᴛɪᴍᴇ ᴛᴏ ᴀᴅᴅ ʏᴏᴜ ɪɴ ᴛʜᴇ ᴘʀᴇᴍɪᴜᴍ ʟɪsᴛ.
  
