@@ -1,37 +1,54 @@
-import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery 
-from plugins.helper.Rahul import Fonts
+from plugins.helper.aks_font_func import Fonts
 
 @Client.on_message(filters.private & filters.command(["font"]))
 async def style_buttons(c, m, cb=False):
     try:
         title = m.text.split(" ", 1)[1]
-    except IndexError:
-        await m.reply_text(text="Enter any text. Example: /font [text]")
+    except:
+        await m.reply_text(text="Ente Any Text Eg:- `/font [text]`")    
         return
-
-    fonts = [
-        Fonts.typewriter, Fonts.script, Fonts.outline, Fonts.serief, Fonts.bold_cool, Fonts.cool, Fonts.smallcap, Fonts.script, Fonts.bold_script, Fonts.tiny, Fonts.comic, Fonts.san, Fonts.slant_san, Fonts.slant, Fonts.sim, Fonts.circles, Fonts.dark_circle, Fonts.gothic, Fonts.bold_gothic, Fonts.cloud, Fonts.happy, Fonts.sad, Fonts.special, Fonts.square, Fonts.dark_square, Fonts.andalucia, Fonts.manga, Fonts.stinky, Fonts.bubbles, Fonts.underline, Fonts.ladybug, Fonts.rays, Fonts.birds, Fonts.slash, Fonts.stop, Fonts.skyline, Fonts.arrows, Fonts.rvnes, Fonts.strike, Fonts.frozen
-    ]
-
-    messages = []  # Store the messages to delete later
-
-    for font in fonts:
-        reply = await m.reply_text(f"{font(title)}")
-        messages.append(reply)
-
-    d=await m.reply_text(text="<b>ʙʏ : @none_090</b>")
-
-    async def delete_messages():
-        for msg in messages:
-            await c.delete_messages(m.chat.id, msg.id)
-
-    # Wait for 10 minutes before deleting the messages
-    await asyncio.sleep(120)
-    await delete_messages()
-    await m.delete()
-    await d.delete()
+    await m.reply_text(f"`{Fonts.typewriter(title)}`")
+    await m.reply_text(f"`{Fonts.script(title)}`")
+    await m.reply_text(f"`{Fonts.outline(title)}`")
+    await m.reply_text(f"`{Fonts.serief(title)}`")
+    await m.reply_text(f"`{Fonts.bold_cool(title)}`")
+    await m.reply_text(f"`{Fonts.cool(title)}`")
+    await m.reply_text(f"`{Fonts.smallcap(title)}`")
+    await m.reply_text(f"`{Fonts.script(title)}`")
+    await m.reply_text(f"`{Fonts.bold_script(title)}`")
+    await m.reply_text(f"`{Fonts.tiny(title)}`")
+    await m.reply_text(f"`{Fonts.comic(title)}`")
+    await m.reply_text(f"`{Fonts.san(title)}`")
+    await m.reply_text(f"`{Fonts.slant_san(title)}`")
+    await m.reply_text(f"`{Fonts.slant(title)}`")
+    await m.reply_text(f"`{Fonts.sim(title)}`")
+    await m.reply_text(f"`{Fonts.circles(title)}`")
+    await m.reply_text(f"`{Fonts.dark_circle(title)}`")
+    await m.reply_text(f"`{Fonts.gothic(title)}`")
+    await m.reply_text(f"`{Fonts.bold_gothic(title)}`")
+    await m.reply_text(f"`{Fonts.cloud(title)}`")
+    await m.reply_text(f"`{Fonts.happy(title)}`")
+    await m.reply_text(f"`{Fonts.sad(title)}`")
+    await m.reply_text(f"`{Fonts.special(title)}`")
+    await m.reply_text(f"`{Fonts.square(title)}`")
+    await m.reply_text(f"`{Fonts.dark_square(title)}`")
+    await m.reply_text(f"`{Fonts.andalucia(title)}`")
+    await m.reply_text(f"`{Fonts.manga(title)}`")
+    await m.reply_text(f"`{Fonts.stinky(title)}`")
+    await m.reply_text(f"`{Fonts.bubbles(title)}`")
+    await m.reply_text(f"`{Fonts.underline(title)}`")
+    await m.reply_text(f"`{Fonts.ladybug(title)}`")
+    await m.reply_text(f"`{Fonts.rays(title)}`")
+    await m.reply_text(f"`{Fonts.birds(title)}`")
+    await m.reply_text(f"`{Fonts.slash(title)}`")
+    await m.reply_text(f"`{Fonts.stop(title)}`")
+    await m.reply_text(f"`{Fonts.skyline(title)}`")
+    await m.reply_text(f"`{Fonts.arrows(title)}`")
+    await m.reply_text(f"`{Fonts.rvnes(title)}`")
+    await m.reply_text(f"`{Fonts.strike(title)}`")
+    await m.reply_text(f"`{Fonts.frozen(title)}`")
 
 @Client.on_callback_query(filters.regex('^style'))
 async def style(c, m):
