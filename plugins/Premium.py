@@ -1,20 +1,20 @@
-# © CodeXBots (Rahul)
+from datetime import timedelta
+from asyncio import sleep 
 import pytz
-import datetime
-import asyncio
+import datetime, time
 from info import ADMINS, USERNAME, LOG_CHANNEL, QR_CODE
 from Script import script 
-from utils import get_seconds
+from utils import get_seconds, get_status, temp
 from database.users_chats_db import db 
 from pyrogram import Client, filters 
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong
 
-@Client.on_message(filters.command("addpremium") & filters.user(ADMINS))
+@Client.on_message(filters.command("add_premium") & filters.user(ADMINS))
 async def add_premium(client, message):
     try:
         _, user_id, time, *custom_message = message.text.split(" ", 3)
-        custom_message = "𝑻𝒉𝒂𝒏𝒌𝒔 𝑭𝒐𝒓 𝑻𝒂𝒌𝒊𝒏𝒈 𝑺𝒖𝒃𝒔𝒄𝒓𝒊𝒑𝒕𝒊𝒐𝒏" if not custom_message else " ".join(custom_message)
+        custom_message = "**𝚃𝚑𝚊𝚗𝚔𝚜 𝚃𝚘 𝙱𝚞𝚢 𝙿𝚛𝚎𝚖𝚒𝚞𝚖 🙏**" if not custom_message else " ".join(custom_message)
         time_zone = datetime.datetime.now(pytz.timezone("Asia/Kolkata"))
         current_time = time_zone.strftime("%d-%m-%Y : %I:%M:%S %p")
         user = await client.get_users(user_id)
@@ -26,31 +26,31 @@ async def add_premium(client, message):
             data = await db.get_user(user.id)
             expiry = data.get("expiry_time")
             expiry_str_in_ist = expiry.astimezone(pytz.timezone("Asia/Kolkata")).strftime("%d-%m-%Y  :  %I:%M:%S %p")
-            await message.reply_text(f"Premium access added to the user\n\n👤 User: {user.mention}\n\n🪙 user id: <code>{user_id}</code>\n\n⏰ premium access: {time}\n\n🎩 Joining : {current_time}\n\n⌛️ Expiry: {expiry_str_in_ist}", disable_web_page_preview=True)
-            await client.send_message(chat_id=user_id, text=f"<b>{user.mention},\n\nᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ᴛᴏ ʏᴏᴜʀ ᴀᴄᴄᴏᴜɴᴛ ᴇɴᴊᴏʏ 💥\n\nᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss - {time}\n\nᴊᴏɪɴɪɴɢ - {current_time}\n\nᴇxᴘɪʀᴇ ɪɴ - {expiry_str_in_ist}</b>\n\n{custom_message}", disable_web_page_preview=True)
-            await client.send_message(LOG_CHANNEL, text=f"#Added_Premium\n\n👤 User - {user.mention}\n\n🪙 Id - <code>{user_id}</code>\n\n⏰ Premium access - {time}\n\n🎩 Joining - {current_time}\n\n⌛️ Expiry - {expiry_str_in_ist}\n\n{custom_message}", disable_web_page_preview=True)
+            await message.reply_text(f"<b><u>Premium Access Added To The User</u>\n\n👤 User: {user.mention}\n\n🪪 User id: <code>{user_id}</code>\n\n⏰ Premium Access: {time}\n\n🎩 Joining : {current_time}\n\n⌛️ Expiry: {expiry_str_in_ist}.\n\n<code>{custom_message}</code></b>", disable_web_page_preview=True)
+            await client.send_message(chat_id=user_id, text=f"<b>ʜɪɪ {user.mention},\n\n<u>ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ ᴛᴏ ʏᴏᴜʀ ᴀᴄᴄᴏᴜɴᴛ</u> 😀\n\nᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss - {time}\n\n⏰ ᴊᴏɪɴɪɴɢ - {current_time}\n\n⌛️ ᴇxᴘɪʀᴇ ɪɴ - {expiry_str_in_ist}\n\n<code>{custom_message}</code></b>", disable_web_page_preview=True)
+            await client.send_message(LOG_CHANNEL, text=f"#Added_Premium\n\n👤 User - {user.mention}\n\n🪪 User Id - <code>{user_id}</code>\n\n⏰ Premium Access - {time}\n\n🎩 Joining - {current_time}\n\n⌛️ Expiry - {expiry_str_in_ist}\n\n<code>{custom_message}</code>", disable_web_page_preview=True)
         else:
-            await message.reply_text("<b>⚠️ Invalid format, use this format - <code>/addpremium 1030335104 1day</code>\n\n<u>Time format -</u>\n\n<code>1 day for day\n1 hour for hour\n1 min for minutes\n1 month for month\n1 year for year</code>\n\nChange as your wish like 2, 3, 4, 5 etc....</b>")
+            await message.reply_text("<b>⚠️ Invalid Format, Use This Format - <code>/add_premium 1030335104 1day</code>\n\n<u>Time Format -</u>\n\n<code>1 day for day\n1 hour for hour\n1 min for minutes\n1 month for month\n1 year for year</code>\n\nChange As Your Wish Like 2, 3, 4, 5 etc....</b>")
     except ValueError:
-        await message.reply_text("<b>⚠️ Invalid format, use this format - <code>/addpremium 1030335104 1day</code>\n\n<u>Time format -</u>\n\n<code>1 day for day\n1 hour for hour\n1 min for minutes\n1 month for month\n1 year for year</code>\n\nChange as your wish like 2, 3, 4, 5 etc....</b>")
+        await message.reply_text("<b>⚠️ Invalid Format, Use This Format - <code>/add_premium 1030335104 1day</code>\n\n<u>Time Format -</u>\n\n<code>1 day for day\n1 hour for hour\n1 min for minutes\n1 month for month\n1 year for year</code>\n\nChange As Your Wish Like 2, 3, 4, 5 etc....</b>")
     except Exception as e:
         await message.reply_text(f"error - {e}")
 
-@Client.on_message(filters.command("removepremium") & filters.user(ADMINS))
+@Client.on_message(filters.command("remove_premium") & filters.user(ADMINS))
 async def remove_premium(client, message):
     if len(message.command) == 2:
         user_id = int(message.command[1])
         user = await client.get_users(user_id)
         if await db.remove_premium_access(user_id):
-            await message.reply_text("<b>sᴜᴄᴄᴇssꜰᴜʟʟʏ ʀᴇᴍᴏᴠᴇᴅ ✅</b>")
+            await message.reply_text("<b>sᴜᴄᴄᴇssꜰᴜʟʟʏ ʀᴇᴍᴏᴠᴇᴅ 💔</b>")
             await client.send_message(
                 chat_id=user_id,
-                text=f"<b>ʜʏ {user.mention},\n\n⚠️ ʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss ʜᴀs ʙᴇᴇɴ ʀᴇᴍᴏᴠᴇᴅ 🚫</b>"
+                text=f"<b>ʜᴇʏ {user.mention},\n\nʏᴏᴜʀ ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇss ʜᴀs ʙᴇᴇɴ ʀᴇᴍᴏᴠᴇᴅ 😕</b>"
             )
         else:
             await message.reply_text("<b>👀 ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ, ᴀʀᴇ ʏᴏᴜ sᴜʀᴇ ɪᴛ ᴡᴀs ᴀ ᴘʀᴇᴍɪᴜᴍ ᴜsᴇʀ ɪᴅ??</b>")
     else:
-        await message.reply_text("Usage: <code>/removepremium user_id</code>")
+        await message.reply_text("Usage: <code>/remove_premium user_id</code>")
 
 @Client.on_message(filters.command("myplan"))
 async def myplan(client, message):
@@ -67,14 +67,19 @@ async def myplan(client, message):
         hours, remainder = divmod(time_left.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         time_left_str = f"{days} days, {hours} hours, {minutes} minutes"
-        await message.reply_text(f"#Premium_Info:\n\n👤 User: {user}\n\n🪙 User Id: <code>{user_id}</code>\n\n⏰ Time Left: {time_left_str}\n\n⌛️ Expiry: {expiry_str_in_ist}.")   
+        await message.reply_text(f"#Premium_user_data:\n\n👤 User: {user}\n\n🪙 User Id: <code>{user_id}</code>\n\n⏰ Time Left: {time_left_str}\n\n⌛️ Expiry: {expiry_str_in_ist}.")   
     else:
-        await message.reply_text(f"<b>{user},\n\nʏᴏᴜ ᴅᴏ ɴᴏᴛ ʜᴀᴠᴇ ᴀɴʏ ᴀᴄᴛɪᴠᴇ ᴘʀᴇᴍɪᴜᴍ ᴘʟᴀɴs, ɪꜰ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴛᴀᴋᴇ ᴘʀᴇᴍɪᴜᴍ ᴛʜᴇɴ ᴄʜᴇᴄᴋ /plan ꜰᴏʀ ᴍᴏʀᴇ ᴅᴇᴛᴀɪʟs...</b>")
+        btn = [                                
+            [InlineKeyboardButton("🛍️ ʙᴜʏ sᴜʙsᴄʀɪᴘᴛɪᴏɴ : ʀᴇᴍᴏᴠᴇ ᴀᴅs 🛍️", callback_data="premium")],
+            [InlineKeyboardButton("⚠️ ᴄʟᴏsᴇ / ᴅᴇʟᴇᴛᴇ ⚠️", callback_data="close_data")]
+        ]
+        reply_markup = InlineKeyboardMarkup(btn)         
+        await message.reply_text(f"**Hey {user}.. 💔\n\nYou Do Not Have Any Active Premium Plans, If You Want To Take Premium Then Click on /plan To Know About The Plan**",reply_markup=reply_markup)
         
-@Client.on_message(filters.command("checkplan") & filters.user(ADMINS))
+@Client.on_message(filters.command("check_plan") & filters.user(ADMINS))
 async def check_plan(client, message):
     if len(message.text.split()) == 1:
-        await message.reply_text("use this command with user id... like\n\n /checkplan user_id")
+        await message.reply_text("use this command with user id... like\n\n /check_plan user_id")
         return
     user_id = int(message.text.split(' ')[1])
     user_data = await db.get_user(user_id)
@@ -106,21 +111,19 @@ async def plan(client, message):
         user_info = f"@{message.from_user.username}"
     else:
         user_info = f"{message.from_user.mention}"
-    log_message = f"#Plan\n\n<b>🚫 ᴛʜɪs ᴜsᴇʀ ᴛʀʏ ᴛᴏ ᴄʜᴇᴄᴋ ᴘʟᴀɴ\n\n- ɪᴅ - `{user_id}`\n- ɴᴀᴍᴇ - {user_info}</b>"
+    log_message = f"<b><u>🚫 ᴛʜɪs ᴜsᴇʀs ᴛʀʏ ᴛᴏ ᴄʜᴇᴄᴋ /plan</u> {temp.B_LINK}\n\n- ɪᴅ - `{user_id}`\n- ɴᴀᴍᴇ - {user_info}</b>"
     btn = [[
-        InlineKeyboardButton("📸  sᴇɴᴅ sᴄʀᴇᴇɴsʜᴏᴛ  📸", url=USERNAME),
+        InlineKeyboardButton('🍁 𝗖𝗵𝗲𝗰𝗸 𝗔𝗹𝗹 𝗣𝗹𝗮𝗻𝘀 & 𝗣𝗿𝗶𝗰𝗲 🍁', callback_data='kunal'),
     ],[
-        InlineKeyboardButton("🗑  ᴄʟᴏsᴇ  🗑", callback_data="close_data")
+        InlineKeyboardButton("🗑 ᴄʟᴏsᴇ / ᴅᴇʟᴇᴛᴇ 🗑", callback_data="close_data")
     ]]
-    await client.send_message(LOG_CHANNEL, log_message)
-    r=await message.reply_photo(
+    await message.reply_photo(
         photo=(QR_CODE),
         caption=script.PREMIUM_TEXT, 
         reply_markup=InlineKeyboardMarkup(btn))
-    await asyncio.sleep(120)
-    await r.delete()
+    await client.send_message(LOG_CHANNEL, log_message)
 
-@Client.on_message(filters.command("premiumuser") & filters.user(ADMINS))
+@Client.on_message(filters.command("premium_user") & filters.user(ADMINS))
 async def premium_user(client, message):
     aa = await message.reply_text("Fetching ...")  
     users = await db.get_all_users()
@@ -154,6 +157,6 @@ async def premium_user(client, message):
     try:
         await aa.edit_text(new)
     except MessageTooLong:
-        with open('premiumuser.txt', 'w+') as outfile:
+        with open('usersplan.txt', 'w+') as outfile:
             outfile.write(new)
-        await message.reply_document('premiumuser.txt', caption="Paid Users:")
+        await message.reply_document('usersplan.txt', caption="Paid Users:")

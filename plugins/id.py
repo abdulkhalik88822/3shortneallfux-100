@@ -11,7 +11,7 @@ async def show_id(client, message):
         await message.reply_text(f"<b>» ᴜꜱᴇʀ ɪᴅ - <code>{message.from_user.id}</code></b>")
 
     elif chat_type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        await message.reply_text(f"<b>» ᴜꜱᴇʀ ɪᴅ - <code>{message.from_user.id}</code>\n» ɢʀᴏᴜᴘ ɪᴅ <code>{message.chat.id}</code></b>")
+        await message.reply_text(f"<b>» ɢʀᴏᴜᴘ ɪᴅ - <code>{message.chat.id}</code></b>")
 
     elif chat_type == enums.ChatType.CHANNEL:
-        await message.reply_text(f"<b>» ᴄʜᴀɴɴᴇʟ ɪᴅ <code>{message.chat.id}</code></b>")
+        await message.reply_text(f"<b>» ᴄʜᴀɴɴᴇʟ ɪᴅ - <code>{message.chat.id}</code></b>")

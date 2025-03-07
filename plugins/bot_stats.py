@@ -6,9 +6,9 @@ from database.users_chats_db import db
 from database.ia_filterdb import Media, get_files_db_size
 from utils import get_size, temp
 from Script import script
+from datetime import datetime
 import psutil
 import time
-import os
 
 @Client.on_message(filters.new_chat_members & filters.group)
 async def save_group(bot, message):
@@ -18,15 +18,15 @@ async def save_group(bot, message):
             total=await bot.get_chat_members_count(message.chat.id)
             user = message.from_user.mention if message.from_user else "Dear" 
             group_link = await message.chat.export_invite_link()
-            await bot.send_message(LOG_CHANNEL, script.NEW_GROUP_TXT.format(message.chat.title, message.chat.id, message.chat.username, group_link, total, user), disable_web_page_preview=True)  
+            await bot.send_message(LOG_CHANNEL, script.NEW_GROUP_TXT.format(temp.B_LINK, message.chat.title, message.chat.id, message.chat.username, group_link, total, user), disable_web_page_preview=True)  
             await db.add_chat(message.chat.id, message.chat.title)
             btn = [[
-                InlineKeyboardButton('🦸‍♀️  sᴜᴘᴘᴏʀᴛ  🦸‍♀️', url="https://telegram.me/CodeXSupport")
+                InlineKeyboardButton('⚡️ sᴜᴘᴘᴏʀᴛ ⚡️', url=USERNAME)
             ]]
             reply_markup=InlineKeyboardMarkup(btn)
             await bot.send_message(
                 chat_id=message.chat.id,
-                text=f"<b>☤ ᴛʜᴀɴᴋ ʏᴏᴜ ꜰᴏʀ ᴀᴅᴅɪɴɢ ᴍᴇ ɪɴ {message.chat.title}\n\n🕵️ ɪꜰ ʏᴏᴜ ʜᴀᴠᴇ ᴀɴʏ ᴅᴏᴜʙᴛ ᴛʜᴇɴ ᴄʟᴇᴀʀ ɪᴛ ᴜsɪɴɢ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ",
+                text=f"<b>☤ ᴛʜᴀɴᴋ ʏᴏᴜ ꜰᴏʀ ᴀᴅᴅɪɴɢ ᴍᴇ ɪɴ {message.chat.title}\n\n🤖 ᴅᴏɴ’ᴛ ꜰᴏʀɢᴇᴛ ᴛᴏ ᴍᴀᴋᴇ ᴍᴇ ᴀᴅᴍɪɴ 🤖\n\n㊝ ɪꜰ ʏᴏᴜ ʜᴀᴠᴇ ᴀɴʏ ᴅᴏᴜʙᴛ ʏᴏᴜ ᴄʟᴇᴀʀ ɪᴛ ᴜsɪɴɢ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴs ㊜</b>",
                 reply_markup=reply_markup
             )
 
@@ -47,7 +47,7 @@ async def leave_a_chat(bot, message):
         chat = chat
     try:
         btn = [[
-            InlineKeyboardButton('👨‍💻  ᴏᴡɴᴇʀ', url=USERNAME)
+            InlineKeyboardButton('⚡️ ᴏᴡɴᴇʀ ⚡️', url=USERNAME)
         ]]
         reply_markup=InlineKeyboardMarkup(btn)
         await bot.send_message(
@@ -62,27 +62,27 @@ async def leave_a_chat(bot, message):
         await message.reply(f'<b>🚫 ᴇʀʀᴏʀ - `{e}`</b>')
 
 @Client.on_message(filters.command('groups') & filters.user(ADMINS))
-async def list_groups(bot, message):
+async def groups_list(bot, message):
     msg = await message.reply('<b>Searching...</b>')
     chats = await db.get_all_chats()
-    total_chats = 0
-    out = "Groups saved in the database are:\n\n"
+    out = "Groups saved in the database:\n\n"
+    count = 1
     async for chat in chats:
-        out += f"<b>Title - `{chat['title']}`\nID - `{chat['id']}`</b>"
-        if chat['chat_status']['is_disabled']:
-            out += ' (Disabled Chat)'
+        chat_info = await bot.get_chat(chat['id'])
+        members_count = chat_info.members_count if chat_info.members_count else "Unknown"
+        out += f"<b>{count}. Title - `{chat['title']}`\nID - `{chat['id']}`\nMembers - `{members_count}`</b>"
         out += '\n\n'
-        total_chats += 1
-    out += f"Total Groups: {total_chats}\n"
+        count += 1
     try:
-        await msg.edit_text(out)
+        if count > 1:
+            await msg.edit_text(out)
+        else:
+            await msg.edit_text("<b>No groups found</b>")
     except MessageTooLong:
-        with open('groups.txt', 'w+') as outfile:
+        with open('chats.txt', 'w+') as outfile:
             outfile.write(out)
-        await message.reply_document('groups.txt', caption="List of Groups")
-        await msg.delete()
-        os.remove('groups.txt')
-        
+        await message.reply_document('chats.txt', caption="<b>List of all groups</b>")
+
 @Client.on_message(filters.command('stats') & filters.user(ADMINS) & filters.incoming)
 async def get_ststs(bot, message):
     users = await db.total_users_count()
