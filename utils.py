@@ -1,6 +1,6 @@
 import logging
 from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid
-from info import AUTH_CHANNEL, LONG_IMDB_DESCRIPTION
+from info import AUTH_CHANNEL, LONG_IMDB_DESCRIPTION, IS_VERIFY
 from imdb import Cinemagoer
 import asyncio
 import shortzy 
@@ -36,18 +36,6 @@ class temp(object):
     GROUPS_CANCEL = False    
     CHAT = {}
 
-async def is_subscribed(bot, user_id, channel_id):
-    try:
-        user = await bot.get_chat_member(channel_id, user_id)
-    except UserNotParticipant:
-        pass
-    except Exception as e:
-        pass
-    else:
-        if user.status != enums.ChatMemberStatus.BANNED:
-            return True
-    return False
-
 async def is_req_subscribed(bot, query):
     if await db.find_join_req(query.from_user.id):
         return True
@@ -61,7 +49,7 @@ async def is_req_subscribed(bot, query):
         if user.status != enums.ChatMemberStatus.BANNED:
             return True
     return False
- 
+
 async def get_poster(query, bulk=False, id=False, file=None):
     if not id:
         query = (query.strip()).lower()
@@ -216,18 +204,19 @@ def list_to_str(k):
 
 async def get_shortlink(link, grp_id, is_second_shortener=False, is_third_shortener=False):
     settings = await get_settings(grp_id)
-    if is_third_shortener:             
-        api, site = settings['api_three'], settings['shortner_three']
-    else:
-        if is_second_shortener:
-            api, site = settings['api_two'], settings['shortner_two']
+    if IS_VERIFY:
+        if is_third_shortener:             
+            api, site = settings['api_three'], settings['shortner_three']
         else:
-            api, site = settings['api'], settings['shortner']
-    shortzy = Shortzy(api, site)
-    try:
-        link = await shortzy.convert(link)
-    except Exception as e:
-        link = await shortzy.get_quick_link(link)
+            if is_second_shortener:
+                api, site = settings['api_two'], settings['shortner_two']
+            else:
+                api, site = settings['api'], settings['shortner']
+        shortzy = Shortzy(api, site)
+        try:
+            link = await shortzy.convert(link)
+        except Exception as e:
+            link = await shortzy.get_quick_link(link)
     return link
 
 def get_file_id(message: "Message") -> Any:
