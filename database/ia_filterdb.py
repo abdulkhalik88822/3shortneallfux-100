@@ -71,16 +71,18 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
         regex = query
     filter = {'file_name': regex}
     cursor = Media.find(filter)
-    cursor.sort('$natural', -1)
+    
+    # === CHANGE: REMOVED SORTING FOR SPEED ===
+    # cursor.sort('$natural', -1) <--- Yeh line 4 second kha rahi thi
     
     if lang:
         cursor.limit(200) 
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # === SIMPLE MATH LOGIC (No DB Call) ===
+        # Fake Count Logic
         if len(files) == max_results:
-            total_results = offset + max_results + 1 # Fake Logic: Agar full page hai to aur bhi hongi
+            total_results = offset + max_results + 1
         else:
             total_results = offset + len(files)
             
@@ -92,10 +94,9 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # === SUPER SAFE FIX ===
-    # Hum database se count maang hi nahi rahe hain (Jo crash kar raha tha)
+    # Fake Count Logic
     if len(files) == max_results:
-        total_results = offset + max_results + 1 # Fake Next Button trigger
+        total_results = offset + max_results + 1 
     else:
         total_results = offset + len(files)
     
@@ -121,7 +122,7 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
         filter['file_type'] = file_type
     
     cursor = Media.find(filter)
-    cursor.sort('$natural', -1)
+    # cursor.sort('$natural', -1) <--- Removed Sorting here too
     files = await cursor.to_list(length=50) 
 
     return files, 50 
