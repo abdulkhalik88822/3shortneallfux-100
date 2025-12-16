@@ -99,6 +99,24 @@ class Bot(Client):
             for message in messages:
                 yield message
                 current += 1
+# --- SPEED FIX CODE START ---
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
+from info import DATABASE_URI2, DATABASE_NAME, COLLECTION_NAME
+
+async def fix_speed_auto():
+    print("🚀 Auto-Indexing Database...")
+    try:
+        client = AsyncIOMotorClient(DATABASE_URI2)
+        await client[DATABASE_NAME][COLLECTION_NAME].create_index([("file_name", "text")])
+        print("✅ Indexing Complete! Search is fast now.")
+    except Exception as e:
+        print(f"Indexing Error: {e}")
+
+# इस लाइन से यह कोड अपने आप रन हो जाएगा
+asyncio.get_event_loop().run_until_complete(fix_speed_auto())
+# --- SPEED FIX CODE END ---
+
 
 app = Bot()
 app.run()
