@@ -1,48 +1,48 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-# वो शब्द जो आप ब्लॉक करना चाहते हैं
+# गंदे शब्द और स्पैम वर्ड्स की लिस्ट
 BAD_WORDS = ["xxx", "porn", "sex", "hot video", "bitcoin", "crypto", "btc", "investment", "18+"]
 
-@Client.on_message(filters.group & (filters.text | filters.caption))
+# group=1 का मतलब है यह बाकी फिल्टर्स के साथ सही से काम करेगा
+@Client.on_message(filters.group & (filters.text | filters.caption), group=1)
 async def delete_spam(client: Client, message: Message):
-    # अगर मैसेज भेजने वाला खुद बॉट है, तो इग्नोर करें
-    if message.from_user and message.from_user.is_self:
+    if not message.from_user:
         return
 
-    # 1. चेक करें कि यूजर Admin है या नहीं (Admin का मैसेज डिलीट नहीं होगा)
-    try:
-        member = await client.get_chat_member(message.chat.id, message.from_user.id)
-        if member.status in ["administrator", "creator"]:
-            return
-    except Exception:
-        pass # अगर कोई एरर आए तो सेफ साइड के लिए मैसेज चेक करें
-
-    # 2. मैसेज का टेक्स्ट या कैप्शन निकालें
+    # 1. सबसे पहले TEXT चेक करें (यह बहुत फास्ट होता है)
     text = message.text or message.caption
     if not text:
         return
     
     text_lower = text.lower()
-    should_delete = False
+    is_spam = False
 
     # (A) लिंक चेक (Links)
     if "http" in text_lower or "t.me" in text_lower or ".com" in text_lower:
-        should_delete = True
-
-    # (B) यूजरनेम चेक (@) - अगर आप चाहते हैं कि कोई यूजरनेम न भेजे
+        is_spam = True
+    # (B) यूजरनेम चेक (@)
     elif "@" in text: 
-        should_delete = True
-
+        is_spam = True
     # (C) गंदे शब्द (Bad Words)
     elif any(word in text_lower for word in BAD_WORDS):
-        should_delete = True
+        is_spam = True
 
-    # 3. डिलीट करें
-    if should_delete:
-        try:
-            await message.delete()
-            # चाहे तो यूजर को वार्निंग भी भेज सकते हैं (नीचे वाली लाइन से # हटा दें)
-            # await message.reply(f"{message.from_user.mention}, लिंक और स्पैम यहाँ अलाउड नहीं है!", quote=True)
-        except Exception as e:
-            print(f"Error deleting message: {e}")
+    # 2. अगर SPAM नहीं है, तो यहीं रुक जाएं (ताकि बॉट मूवी सर्च कर सके)
+    if not is_spam:
+        return 
+
+    # 3. अगर SPAM पकड़ा गया, तो अब चेक करें कि वो ADMIN है या नहीं
+    try:
+        member = await client.get_chat_member(message.chat.id, message.from_user.id)
+        if member.status in ["administrator", "creator"]:
+            return # अगर एडमिन है तो माफ़ करें
+    except Exception:
+        pass 
+
+    # 4. स्पैम है और एडमिन नहीं है -> DELETE
+    try:
+        await message.delete()
+        # await message.reply(f"🚫 {message.from_user.mention}, लिंक और स्पैम यहाँ अलाउड नहीं है!", quote=True)
+    except Exception as e:
+        print(f"Error deleting message: {e}")
