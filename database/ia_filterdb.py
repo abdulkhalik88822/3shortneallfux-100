@@ -32,8 +32,6 @@ async def get_files_db_size():
     
 async def save_file(media):
     """Save file in database"""
-
-    # TODO: Find better way to get same file_id for same media to avoid duplicates
     file_id, file_ref = unpack_new_file_id(media.file_id)
     file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
     try:
@@ -76,11 +74,16 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     cursor.sort('$natural', -1)
     
     if lang:
-        # === FIX 1: Limit added for Language Search ===
-        cursor.limit(200) # Only check top 200 files
+        cursor.limit(200) 
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
-        total_results = len(lang_files)
+        
+        # === SIMPLE MATH LOGIC (No DB Call) ===
+        if len(files) == max_results:
+            total_results = offset + max_results + 1 # Fake Logic: Agar full page hai to aur bhi hongi
+        else:
+            total_results = offset + len(files)
+            
         next_offset = offset + max_results
         if next_offset >= total_results:
             next_offset = ''
@@ -89,12 +92,12 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # === FIX 2: Fast Count Logic ===
-    # purana code 'await Media.count_documents(filter)' 8 lakh files ko ginta tha, isliye slow tha.
-    if offset == 0:
-        total_results = await Media.count_documents(filter, limit=100)
+    # === SUPER SAFE FIX ===
+    # Hum database se count maang hi nahi rahe hain (Jo crash kar raha tha)
+    if len(files) == max_results:
+        total_results = offset + max_results + 1 # Fake Next Button trigger
     else:
-        total_results = offset + max_results + 10 # Fake count to keep buttons working
+        total_results = offset + len(files)
     
     next_offset = offset + max_results
     if next_offset >= total_results:
@@ -117,11 +120,11 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
     if file_type:
         filter['file_type'] = file_type
     
-    # === FIX 3: Removed Slow Count & Added Limit ===
     cursor = Media.find(filter)
     cursor.sort('$natural', -1)
-    files = await cursor.to_list(length=50) # Sirf 50 files load karega
-    return files, 50 # Fake total result
+    files = await cursor.to_list(length=50) 
+
+    return files, 50 
     
 async def get_file_details(query):
     filter = {'file_id': query}
@@ -138,3 +141,24 @@ def encode_file_id(s: bytes) -> str:
         else:
             if n:
                 r += b"\x00" + bytes([n])
+                n = 0
+            r += bytes([i])
+    return base64.urlsafe_b64encode(r).decode().rstrip("=")
+
+def encode_file_ref(file_ref: bytes) -> str:
+    return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
+
+def unpack_new_file_id(new_file_id):
+    """Return file_id, file_ref"""
+    decoded = FileId.decode(new_file_id)
+    file_id = encode_file_id(
+        pack(
+            "<iiqq",
+            int(decoded.file_type),
+            decoded.dc_id,
+            decoded.media_id,
+            decoded.access_hash
+        )
+    )
+    file_ref = encode_file_ref(decoded.file_reference)
+    return file_id, file_ref
