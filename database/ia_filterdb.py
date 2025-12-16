@@ -147,4 +147,36 @@ def unpack_new_file_id(new_file_id):
     )
     file_ref = encode_file_ref(decoded.file_reference)
     return file_id, file_ref
+    async def get_search_results(query, file_type=None, max_results=10, offset=0, filter=False):
+    """For given query return (results, next_offset)"""
+    query = query.strip()
+    if not query:
+        return [], 0
+
+    # सर्च क्वेरी (Search Logic)
+    regex = {"$regex": query, "$options": "i"}
+    mongo_query = {"file_name": regex}
+
+    if file_type:
+        mongo_query["file_type"] = file_type
+
+    # === LIMIT लगाना सबसे ज़रूरी है ===
+    # यहाँ हम .limit(max_results) लगा रहे हैं
+    cursor = Media.find(mongo_query)
     
+    # जो फाइल नई है उसे पहले दिखाओ
+    cursor.sort('$natural', -1)
+    
+    # 50 या 100 रिजल्ट्स के बाद रुक जाओ
+    cursor.skip(offset).limit(max_results)
+
+    # लिस्ट बनाओ
+    files = await cursor.to_list(length=max_results)
+
+    # Next Offset का हिसाब
+    n_offset = offset + max_results
+    if len(files) < max_results:
+        n_offset = 0 
+
+    return files, n_offset
+
