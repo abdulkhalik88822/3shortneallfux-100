@@ -60,47 +60,48 @@ async def save_file(media):
 async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     query = query.strip()
     if not query:
-        return [], '', 0
-
-    # === ⚡ ULTRA FAST MODE (TEXT SEARCH) ⚡ ===
-    # यहाँ हम Regex नहीं, बल्कि $text search यूज़ कर रहे हैं जो 0.1s लेता है
+        raw_pattern = '.'
+    elif ' ' not in query:
+        raw_pattern = r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
+    else:
+        raw_pattern = query.replace(' ', r'.*[\s\.\+\-_]') 
     try:
-        # अगर आपने /speedfix चलाया है तो यह रॉकेट की तरह चलेगा
-        filter = {'$text': {'$search': query}}
-        cursor = Media.find(filter)
-        # जो नाम सबसे ज्यादा मैच होगा, वो सबसे ऊपर आएगा (Relevance Sort)
-        cursor = cursor.sort([('score', {'$meta': 'textScore'})])
-    except Exception:
-        # अगर Index में कोई दिक्कत हुई तो यह पुराने तरीके (Regex) पर वापस आ जाएगा
-        regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
-        filter = {'file_name': regex}
-        cursor = Media.find(filter)
-        cursor.sort('$natural', -1)
-
+        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
+    except:
+        regex = query
+    filter = {'file_name': regex}
+    
+    # === FINAL STABLE SPEED FIX ===
+    cursor = Media.find(filter)
+    
+    # 1. NO SORTING (Speed Boost)
+    # cursor.sort('$natural', -1) <--- DISABLED
+    
     if lang:
+        # 2. LIMIT SCAN (Safety)
         cursor.limit(200) 
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # Fake Count Logic
-        if len(files) == max_results:
-            total_results = offset + max_results + 1
-        else:
+        # 3. FAKE COUNT (No DB Load)
+        if len(files) < max_results:
             total_results = offset + len(files)
+        else:
+            total_results = offset + max_results + 5
             
         next_offset = offset + max_results
         if next_offset >= total_results:
             next_offset = ''
         return files, next_offset, total_results
     
+    # 4. DIRECT LIMIT (Fastest)
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # Fake Count Logic
-    if len(files) == max_results:
-        total_results = offset + max_results + 1 
-    else:
+    if len(files) < max_results:
         total_results = offset + len(files)
+    else:
+        total_results = offset + max_results + 5
     
     next_offset = offset + max_results
     if next_offset >= total_results:
@@ -108,7 +109,6 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     return files, next_offset, total_results
     
 async def get_bad_files(query, file_type=None, offset=0, filter=False):
-    # Bad Files Check ke liye simple regex hi theek hai
     query = query.strip()
     if not query:
         raw_pattern = '.'
@@ -125,6 +125,7 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
         filter['file_type'] = file_type
     
     cursor = Media.find(filter)
+    # No sorting here too
     files = await cursor.to_list(length=50) 
     return files, 50 
     
@@ -151,6 +152,7 @@ def encode_file_ref(file_ref: bytes) -> str:
     return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
 
 def unpack_new_file_id(new_file_id):
+    """Return file_id, file_ref"""
     decoded = FileId.decode(new_file_id)
     file_id = encode_file_id(
         pack(
