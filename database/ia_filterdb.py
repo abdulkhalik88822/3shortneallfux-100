@@ -74,7 +74,11 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     filter = {'file_name': regex}
     cursor = Media.find(filter)
     cursor.sort('$natural', -1)
+    
     if lang:
+        # === CHANGE 1: LIMIT ADDED HERE ===
+        # पहले यह 8 लाख फाइल्स स्कैन करता था, अब सिर्फ टॉप 200 चेक करेगा
+        cursor.limit(200) 
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         total_results = len(lang_files)
@@ -82,9 +86,14 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
         if next_offset >= total_results:
             next_offset = ''
         return files, next_offset, total_results
+    
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
+    
+    # नोट: count_documents बहुत भारी होता है, लेकिन बटन के लिए ज़रूरी है
+    # Indexing होने के कारण यह अब फास्ट चलना चाहिए
     total_results = await Media.count_documents(filter)
+    
     next_offset = offset + max_results
     if next_offset >= total_results:
         next_offset = ''       
@@ -105,11 +114,18 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
     filter = {'file_name': regex}
     if file_type:
         filter['file_type'] = file_type
-    total_results = await Media.count_documents(filter)
+    
+    # === CHANGE 2: LIMIT ADDED HERE (CRITICAL) ===
+    # पहले यह total_results ले रहा था (8 लाख), अब सिर्फ 50 लेगा
+    # total_results = await Media.count_documents(filter) # यह लाइन हटा दी है क्योंकि यह स्लो करती है
+    
     cursor = Media.find(filter)
     cursor.sort('$natural', -1)
-    files = await cursor.to_list(length=total_results)
-    return files, total_results
+    
+    # Limit लगा दी है ताकि बॉट हैंग न हो
+    files = await cursor.to_list(length=50) 
+    
+    return files, 50 # Total result को Fake 50 भेज रहे हैं ताकि क्रैश न हो
     
 async def get_file_details(query):
     filter = {'file_id': query}
@@ -142,9 +158,4 @@ def unpack_new_file_id(new_file_id):
             int(decoded.file_type),
             decoded.dc_id,
             decoded.media_id,
-            decoded.access_hash
-        )
-    )
-    file_ref = encode_file_ref(decoded.file_reference)
-    return file_id, file_ref
-    
+            decoded.
