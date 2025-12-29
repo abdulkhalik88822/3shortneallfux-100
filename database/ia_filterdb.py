@@ -1,7 +1,7 @@
 import logging
-from struct import pack
 import re
 import base64
+from struct import pack
 from pyrogram.file_id import FileId
 from pymongo.errors import DuplicateKeyError
 from umongo import Instance, Document, fields
@@ -60,27 +60,22 @@ async def save_file(media):
 async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     query = query.strip()
     if not query:
-        raw_pattern = '.'
-    elif ' ' not in query:
-        raw_pattern = r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
-    else:
-        raw_pattern = query.replace(' ', r'.*[\s\.\+\-_]') 
-    try:
-        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
-    except:
-        regex = query
-    filter = {'file_name': regex}
-    
-    # === OPTIMIZATION START ===
-    cursor = Media.find(filter)
-    # cursor.sort('$natural', -1) # SORTING REMOVED FOR SPEED
+        return [], '', 0
+
+    # === 🔥 SUPER FAST MODE (TEXT INDEX) ===
+    # यह कोड 8 लाख फाइल्स को Scan नहीं करेगा, सीधा Index से उठाएगा
+    # नोट: इसमें Spelling सही लिखनी होगी (जैसे "Spider Man" मिलेेगा, लेकिन "Spi" नहीं)
     
     if lang:
-        cursor.limit(200) # Only check first 200 matches for language
+        # अगर लैंग्वेज सर्च है, तो हम Text Search + Filter यूज़ करेंगे
+        filter = {'$text': {'$search': query}}
+        cursor = Media.find(filter)
+        cursor.limit(200) # सिर्फ टॉप 200 रिजल्ट देखो (Speed के लिए)
+        
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # Fake Count Logic for Buttons
+        # Fake Count Logic (ताकि बटन काम करें)
         if len(files) < max_results:
             total_results = offset + len(files)
         else:
@@ -90,15 +85,31 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
         if next_offset >= total_results:
             next_offset = ''
         return files, next_offset, total_results
-    
+
+    # === Normal Search (Super Fast) ===
+    try:
+        # $text सर्च सबसे फास्ट होता है (0.1s)
+        filter = {'$text': {'$search': query}}
+        cursor = Media.find(filter)
+        # स्कोर के हिसाब से सॉर्ट करें (जो नाम सबसे ज्यादा मैच हो वो ऊपर)
+        cursor.sort({'score': {'$meta': 'textScore'}})
+    except Exception:
+        # अगर Index काम न करे (Backup Plan)
+        regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
+        filter = {'file_name': regex}
+        cursor = Media.find(filter)
+        cursor.sort('$natural', -1)
+
+    # Limit और Skip लगाओ
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
-    
-    # Fake Count Logic (No DB Load)
+
+    # === FAKE COUNT LOGIC (NO LOAD) ===
+    # यहाँ हमने count_documents हटा दिया है जो 6 सेकंड ले रहा था
     if len(files) < max_results:
         total_results = offset + len(files)
     else:
-        total_results = offset + max_results + 5
+        total_results = offset + max_results + 5 # Fake Total
     
     next_offset = offset + max_results
     if next_offset >= total_results:
@@ -106,6 +117,7 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     return files, next_offset, total_results
     
 async def get_bad_files(query, file_type=None, offset=0, filter=False):
+    # Bad files के लिए हम सिंपल रखते हैं
     query = query.strip()
     if not query:
         raw_pattern = '.'
@@ -121,10 +133,9 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
     if file_type:
         filter['file_type'] = file_type
     
-    # Removed Count & Sorting
     cursor = Media.find(filter)
-    files = await cursor.to_list(length=50) 
-    return files, 50 # Fake total
+    files = await cursor.to_list(length=50) # Limit 50
+    return files, 50 
     
 async def get_file_details(query):
     filter = {'file_id': query}
@@ -149,7 +160,6 @@ def encode_file_ref(file_ref: bytes) -> str:
     return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
 
 def unpack_new_file_id(new_file_id):
-    """Return file_id, file_ref"""
     decoded = FileId.decode(new_file_id)
     file_id = encode_file_id(
         pack(
