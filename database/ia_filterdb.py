@@ -62,20 +62,18 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     if not query:
         return [], '', 0
 
-    # === 🔥 SUPER FAST MODE (TEXT INDEX) ===
-    # यह कोड 8 लाख फाइल्स को Scan नहीं करेगा, सीधा Index से उठाएगा
-    # नोट: इसमें Spelling सही लिखनी होगी (जैसे "Spider Man" मिलेेगा, लेकिन "Spi" नहीं)
+    # === 🔥 ULTRA FAST MODE (TEXT INDEX) ===
+    # यहाँ से Count और Sort दोनों हटा दिए गए हैं
     
     if lang:
-        # अगर लैंग्वेज सर्च है, तो हम Text Search + Filter यूज़ करेंगे
         filter = {'$text': {'$search': query}}
         cursor = Media.find(filter)
-        cursor.limit(200) # सिर्फ टॉप 200 रिजल्ट देखो (Speed के लिए)
+        cursor.limit(200) 
         
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # Fake Count Logic (ताकि बटन काम करें)
+        # Fake Count Logic 
         if len(files) < max_results:
             total_results = offset + len(files)
         else:
@@ -86,30 +84,32 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
             next_offset = ''
         return files, next_offset, total_results
 
-    # === Normal Search (Super Fast) ===
+    # === Normal Search ===
     try:
-        # $text सर्च सबसे फास्ट होता है (0.1s)
+        # Text Search (0.1s Speed)
         filter = {'$text': {'$search': query}}
         cursor = Media.find(filter)
-        # स्कोर के हिसाब से सॉर्ट करें (जो नाम सबसे ज्यादा मैच हो वो ऊपर)
+        # Sort by Relevance (Optional, agar slow lage to is line ko hata dena)
         cursor.sort({'score': {'$meta': 'textScore'}})
     except Exception:
-        # अगर Index काम न करे (Backup Plan)
+        # Backup Plan
         regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
         filter = {'file_name': regex}
         cursor = Media.find(filter)
-        cursor.sort('$natural', -1)
+        # No sorting here
 
-    # Limit और Skip लगाओ
+    # Direct Limit (No Full Scan)
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
 
     # === FAKE COUNT LOGIC (NO LOAD) ===
-    # यहाँ हमने count_documents हटा दिया है जो 6 सेकंड ले रहा था
+    # Old code me ye line thi: total_results = await Media.count_documents(filter)
+    # Isko hata diya hai.
+    
     if len(files) < max_results:
         total_results = offset + len(files)
     else:
-        total_results = offset + max_results + 5 # Fake Total
+        total_results = offset + max_results + 5 
     
     next_offset = offset + max_results
     if next_offset >= total_results:
@@ -117,7 +117,6 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     return files, next_offset, total_results
     
 async def get_bad_files(query, file_type=None, offset=0, filter=False):
-    # Bad files के लिए हम सिंपल रखते हैं
     query = query.strip()
     if not query:
         raw_pattern = '.'
@@ -134,7 +133,7 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
         filter['file_type'] = file_type
     
     cursor = Media.find(filter)
-    files = await cursor.to_list(length=50) # Limit 50
+    files = await cursor.to_list(length=50) # Strict Limit 50
     return files, 50 
     
 async def get_file_details(query):
