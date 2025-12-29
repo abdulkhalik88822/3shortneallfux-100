@@ -31,7 +31,6 @@ async def get_files_db_size():
     return (await mydb.command("dbstats"))['dataSize']
     
 async def save_file(media):
-    """Save file in database"""
     file_id, file_ref = unpack_new_file_id(media.file_id)
     file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
     try:
@@ -45,16 +44,13 @@ async def save_file(media):
             file_type=media.mime_type.split('/')[0]
         )
     except ValidationError:
-        print('Error occurred while saving file in database')
         return 'err'
     else:
         try:
             await file.commit()
         except DuplicateKeyError:      
-            print(f'{getattr(media, "file_name", "NO_FILE")} is already saved in database') 
             return 'dup'
         else:
-            print(f'{getattr(media, "file_name", "NO_FILE")} is saved to database')
             return 'suc'
 
 async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
@@ -62,25 +58,28 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     if not query:
         return [], '', 0
 
-    # === SEARCH LOGIC ===
-    # यहाँ हम Regex यूज़ कर रहे हैं लेकिन Limit के साथ, ताकि यह स्कैन न करे
+    # === 🚀 ULTRA FAST LOGIC (TEXT SEARCH) ===
+    # यह कोड 8 लाख फाइल्स को स्कैन नहीं करेगा, सीधे इंडेक्स से उठाएगा।
+    
+    # 1. पहले Text Search (सबसे तेज़) कोशिश करें
     try:
+        filter = {'$text': {'$search': query}}
+        cursor = Media.find(filter)
+        # Relevance के हिसाब से (जो सबसे अच्छा मैच हो)
+        cursor.sort({'score': {'$meta': 'textScore'}})
+        cursor.limit(100) # सिर्फ टॉप 100 देखो
+    except Exception:
+        # अगर Text Search फेल हो (Backup Plan)
         regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
         filter = {'file_name': regex}
-    except:
-        return [], '', 0
-
-    cursor = Media.find(filter)
-    
-    # ❌ SORTING REMOVED: यह 3-4 सेकंड बचाता है
-    # cursor.sort('$natural', -1) 
+        cursor = Media.find(filter)
+        cursor.limit(50) # स्कैनिंग में सिर्फ 50 की लिमिट
 
     if lang:
-        cursor.limit(200) # Limit scan to 200 items
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # ❌ COUNTING REMOVED: Database se count nahi mangna
+        # Fake Count Logic
         if len(files) < max_results:
             total_results = offset + len(files)
         else:
@@ -91,12 +90,11 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
             next_offset = ''
         return files, next_offset, total_results
     
-    # DIRECT LIMIT (Fastest Method)
+    # Direct Fetch
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # ❌ COUNTING REMOVED
-    # यहाँ Fake Total Results बना रहे हैं ताकि बटन काम करे
+    # Fake Count Logic (No DB Load)
     if len(files) < max_results:
         total_results = offset + len(files)
     else:
@@ -124,7 +122,7 @@ async def get_bad_files(query, file_type=None, offset=0, filter=False):
         filter['file_type'] = file_type
     
     cursor = Media.find(filter)
-    files = await cursor.to_list(length=50) # Only 50
+    files = await cursor.to_list(length=50) 
     return files, 50 
     
 async def get_file_details(query):
