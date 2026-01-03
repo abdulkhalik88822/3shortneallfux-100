@@ -58,25 +58,26 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     if not query:
         return [], '', 0
 
-    # === 🚀 ULTRA FAST LOGIC ===
-    # 1. Text Search (Index) Try karega (0.1s Speed)
+    # === 🚀 SPEED FIX LOGIC ===
+    # Hum yahan 'Text Index' use kar rahe hain jo 0.1s leta hai.
     try:
         filter = {'$text': {'$search': query}}
         cursor = Media.find(filter)
         cursor.sort({'score': {'$meta': 'textScore'}})
-        cursor.limit(100) 
+        cursor.limit(100) # Sirf top 100 files dekho
     except Exception:
-        # Backup Plan (Regex)
+        # Agar Text Index fail ho jaye to Regex use karo (Backup)
         regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
         filter = {'file_name': regex}
         cursor = Media.find(filter)
-        cursor.limit(50) 
+        cursor.limit(50) # Scan limit
 
     if lang:
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # Fake Count (No Loading)
+        # --- FAKE COUNT (Ye line speed badhayegi) ---
+        # Hum database se count nahi maang rahe, bas andaaza laga rahe hain
         if len(files) < max_results:
             total_results = offset + len(files)
         else:
@@ -87,11 +88,10 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
             next_offset = ''
         return files, next_offset, total_results
     
-    # Direct Fetch
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # Fake Count Logic
+    # --- FAKE COUNT LOGIC ---
     if len(files) < max_results:
         total_results = offset + len(files)
     else:
