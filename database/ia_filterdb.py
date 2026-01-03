@@ -58,28 +58,25 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     if not query:
         return [], '', 0
 
-    # === 🚀 ULTRA FAST LOGIC (TEXT SEARCH) ===
-    # यह कोड 8 लाख फाइल्स को स्कैन नहीं करेगा, सीधे इंडेक्स से उठाएगा।
-    
-    # 1. पहले Text Search (सबसे तेज़) कोशिश करें
+    # === 🚀 ULTRA FAST LOGIC ===
+    # 1. Text Search (Index) Try karega (0.1s Speed)
     try:
         filter = {'$text': {'$search': query}}
         cursor = Media.find(filter)
-        # Relevance के हिसाब से (जो सबसे अच्छा मैच हो)
         cursor.sort({'score': {'$meta': 'textScore'}})
-        cursor.limit(100) # सिर्फ टॉप 100 देखो
+        cursor.limit(100) 
     except Exception:
-        # अगर Text Search फेल हो (Backup Plan)
+        # Backup Plan (Regex)
         regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
         filter = {'file_name': regex}
         cursor = Media.find(filter)
-        cursor.limit(50) # स्कैनिंग में सिर्फ 50 की लिमिट
+        cursor.limit(50) 
 
     if lang:
         lang_files = [file async for file in cursor if lang in file.file_name.lower()]
         files = lang_files[offset:][:max_results]
         
-        # Fake Count Logic
+        # Fake Count (No Loading)
         if len(files) < max_results:
             total_results = offset + len(files)
         else:
@@ -94,7 +91,7 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     cursor.skip(offset).limit(max_results)
     files = await cursor.to_list(length=max_results)
     
-    # Fake Count Logic (No DB Load)
+    # Fake Count Logic
     if len(files) < max_results:
         total_results = offset + len(files)
     else:
