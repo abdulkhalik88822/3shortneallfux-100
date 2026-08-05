@@ -9,7 +9,7 @@ from Script import script
 from pyrogram import Client, filters, enums
 from pyrogram.errors import ChatAdminRequired, FloodWait
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from database.ia_filterdb import Media, get_file_details, get_bad_files, unpack_new_file_id
+from database.ia_filterdb import Media, get_file_details, get_bad_files, unpack_new_file_id, ensure_indexes
 from database.users_chats_db import db
 from info import ADMINS, THREE_VERIFY_GAP, LOG_CHANNEL, USERNAME, VERIFY_IMG, IS_VERIFY, FILE_CAPTION, AUTH_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, LOG_API_CHANNEL, TWO_VERIFY_GAP, QR_CODE, DELETE_TIME, LINK_MODE, IS_VERIFY
 from utils import get_settings, save_group_settings, is_req_subscribed, get_size, get_shortlink, is_check_admin, get_status, temp, get_readable_time
@@ -840,3 +840,13 @@ async def off_force_sub(client, message):
     await db.update_group(group_data)  
     await message.reply_text(f"Successfully Force Suscribe is removed now")
 
+# ---------- 🚀 NEW SUPER FAST SPEED FIX COMMAND ----------
+@Client.on_message(filters.command("speedfix") & filters.user(ADMINS))
+async def fix_database_speed(client, message):
+    status = await message.reply("⚡ **Super Fast Indexing शुरू हो रही है...**\nकृपया 1-2 मिनट इंतज़ार करें।")
+    try:
+        # नई Indexing function call करें (जो ia_filterdb.py में डाली है)
+        await ensure_indexes()
+        await status.edit("✅ **SUCCESS!** \n\nआपका Database अब **Super Fast** हो गया है!\n\n📌 अब कोई भी मूवी सर्च करके देखें - रिजल्ट **झटके** से आएंगे 🚀")
+    except Exception as e:
+        await status.edit(f"❌ **Error:** {e}\n\nकृपया अपनी MongoDB Connection चेक करें।")
