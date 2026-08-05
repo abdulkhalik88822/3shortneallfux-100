@@ -30,6 +30,19 @@ class Media(Document):
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
 
+# -------- 🚀 SPEED BOOST: Indexes ensure karo (Bot Start pe chalega) --------
+async def ensure_indexes():
+    try:
+        # 1. Full Text Search Index (सबसे तेज़)
+        await Media.collection.create_index([("file_name", "text")], default_language="none")
+        # 2. Normal Index for Prefix Search
+        await Media.collection.create_index([("file_name", 1)])
+        # 3. Size Index (कभी कभी काम आता है)
+        await Media.collection.create_index([("file_size", 1)])
+        print("✅ Database indexes created/verified successfully!")
+    except Exception as e:
+        print(f"Index creation warning (ignore if already exists): {e}")
+
 async def get_files_db_size():
     return (await mydb.command("dbstats"))['dataSize']
     
@@ -56,54 +69,52 @@ async def save_file(media):
         else:
             return 'suc'
 
+# -------- 🚀 ULTRA FAST SEARCH (Optimized) --------
 async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     query = query.strip()
     if not query:
         return [], '', 0
 
-    # === 🚀 ULTRA FAST LOGIC (No Count, No Sort) ===
+    # 1. Super Fast: Text Search (Indexed) - ये सबसे पहले try करेगा
     try:
-        # Text Search Try Karenge (Fastest)
         filter = {'$text': {'$search': query}}
-        cursor = Media.find(filter)
-        cursor.sort({'score': {'$meta': 'textScore'}})
-        cursor.limit(100) 
-    except Exception:
-        # Backup Plan (Regex)
-        regex = re.compile(f".*{query}.*", flags=re.IGNORECASE)
-        filter = {'file_name': regex}
-        cursor = Media.find(filter)
-        cursor.limit(50) 
+        cursor = Media.find(filter).sort([('score', {'$meta': 'textScore'})]).limit(100)
+        files = await cursor.to_list(length=100)
+        if files:
+            # Language filter (अगर लागू हो)
+            if lang:
+                files = [f for f in files if lang in f.file_name.lower()]
+            # Pagination
+            total = len(files)
+            if offset >= total:
+                return [], '', total
+            next_offset = offset + max_results
+            return files[offset:next_offset], str(next_offset) if next_offset < total else '', total
+    except Exception as e:
+        print(f"Text search fallback due to: {e}")
 
-    if lang:
-        lang_files = [file async for file in cursor if lang in file.file_name.lower()]
-        files = lang_files[offset:][:max_results]
+    # 2. Backup: Prefix Regex (जल्दी के लिए "^" use किया है, ताकि Index लगे)
+    try:
+        # अगर query में स्पेस है तो उसे ठीक करें
+        search_query = re.escape(query)
+        regex = re.compile(f"^{search_query}", re.IGNORECASE)  # "^" से शुरू होने वाली files
+        filter = {'file_name': regex}
+        # Index hint देना (MongoDB को बताओ file_name index use करे)
+        cursor = Media.find(filter).hint([('file_name', 1)]).limit(100)
+        files = await cursor.to_list(length=100)
         
-        # Fake Count logic
-        if len(files) < max_results:
-            total_results = offset + len(files)
-        else:
-            total_results = offset + max_results + 5
-            
+        if lang:
+            files = [f for f in files if lang in f.file_name.lower()]
+        
+        total = len(files)
+        if offset >= total:
+            return [], '', total
         next_offset = offset + max_results
-        if next_offset >= total_results:
-            next_offset = ''
-        return files, next_offset, total_results
-    
-    cursor.skip(offset).limit(max_results)
-    files = await cursor.to_list(length=max_results)
-    
-    # Fake Count Logic
-    if len(files) < max_results:
-        total_results = offset + len(files)
-    else:
-        total_results = offset + max_results + 5
-    
-    next_offset = offset + max_results
-    if next_offset >= total_results:
-        next_offset = ''       
-    return files, next_offset, total_results
-    
+        return files[offset:next_offset], str(next_offset) if next_offset < total else '', total
+    except Exception as e:
+        print(f"Regex search error: {e}")
+        return [], '', 0
+
 async def get_bad_files(query, file_type=None, offset=0, filter=False):
     query = query.strip()
     if not query:
