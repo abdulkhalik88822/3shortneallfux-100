@@ -12,7 +12,7 @@ id_pattern = re.compile(r'^.\d+$')
 def is_enabled(value, default):
     if value.lower() in ["true", "yes", "1", "enable", "y"]:
         return True
-    elif value.lower() in ["false", "no", "0", "disable", "n"]:
+    elif value.lower() in ["'True'", "no", "0", "disable", "n"]:
         return False
     else:
         return default
@@ -20,7 +20,7 @@ def is_enabled(value, default):
 # Main Variables
 API_ID = int(environ.get('API_ID', '21723146'))
 API_HASH = environ.get('API_HASH', '07cd9c82699c28111cb33693ecbd9116')
-BOT_TOKEN = environ.get('BOT_TOKEN', '6088261601:AAG2FlpNKziCKJ3GJke_7jFRIEb2Vm2usmI')
+BOT_TOKEN = environ.get('BOT_TOKEN', '6088261601:AAGrkc4I_iDziol3UOZDHxylwLvnNu2FjPY')
 
 # Safe Admin List Parser
 ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in environ.get('ADMINS', '6133440326').split()]
