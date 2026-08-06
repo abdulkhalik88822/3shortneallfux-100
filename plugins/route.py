@@ -15,7 +15,7 @@ def set_bot(bot_instance):
 routes = web.RouteTableDef()
 
 # ============================================
-# 🔥 IMPORTANT: STATIC ROUTES (/, /dashboard) को पहले रखें
+# 🔥 STATIC ROUTES (/, /dashboard) - पहले डिफाइन
 # ============================================
 
 @routes.get("/", allow_head=True)
@@ -270,7 +270,7 @@ async def update_settings(request):
 
 
 # ============================================
-# 🔥 DYNAMIC ROUTES (Watch/Download) - ये नीचे रखें
+# 🔥 DYNAMIC ROUTES (Watch/Download) - YEH FIXED VERSION HAI
 # ============================================
 
 @routes.get("/watch/{msg_id}")
@@ -290,8 +290,15 @@ async def watch_handler(request):
         return web.Response(text="BIN_CHANNEL not configured.", status=500)
     
     try:
-        # BIN_CHANNEL से Message फेच करें
-        msg = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=msg_id)
+        # ---------- 🔥 FIX: LIST के रूप में भेजें (Async Generator Error ठीक) ----------
+        # जब [msg_id] (List) भेजते हैं, तो Pyrogram हमेशा एक List लौटाता है, जो await हो सकता है।
+        messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
+        
+        if not messages:
+            return web.Response(text="Message not found.", status=404)
+        
+        # List का पहला Element हमारी Message है
+        msg = messages[0]
         if not msg:
             return web.Response(text="Message not found.", status=404)
         
