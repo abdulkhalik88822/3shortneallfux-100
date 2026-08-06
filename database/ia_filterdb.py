@@ -1,16 +1,15 @@
 import logging
 import re
 import base64
+import json
 from struct import pack
 from pyrogram.file_id import FileId
 from pymongo.errors import DuplicateKeyError
 from umongo import Instance, Document, fields
 from motor.motor_asyncio import AsyncIOMotorClient
 from marshmallow.exceptions import ValidationError
-from info import DATABASE_URI2, DATABASE_NAME, COLLECTION_NAME
-
-# Error Fix: MAX_BTN ko info.py se nahi mangayenge, direct yahi likhenge
-MAX_BTN = 8 
+from info import DATABASE_URI2, DATABASE_NAME, COLLECTION_NAME, MAX_BTN
+from utils import get_redis
 
 client = AsyncIOMotorClient(DATABASE_URI2)
 mydb = client[DATABASE_NAME]
@@ -30,18 +29,14 @@ class Media(Document):
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
 
-# -------- 🚀 SPEED BOOST: Indexes ensure karo (Bot Start pe chalega) --------
 async def ensure_indexes():
     try:
-        # 1. Full Text Search Index (सबसे तेज़)
         await Media.collection.create_index([("file_name", "text")], default_language="none")
-        # 2. Normal Index for Prefix Search
         await Media.collection.create_index([("file_name", 1)])
-        # 3. Size Index (कभी कभी काम आता है)
         await Media.collection.create_index([("file_size", 1)])
         print("✅ Database indexes created/verified successfully!")
     except Exception as e:
-        print(f"Index creation warning (ignore if already exists): {e}")
+        print(f"Index creation warning: {e}")
 
 async def get_files_db_size():
     return (await mydb.command("dbstats"))['dataSize']
@@ -69,48 +64,88 @@ async def save_file(media):
         else:
             return 'suc'
 
-# -------- 🚀 ULTRA FAST SEARCH (Optimized) --------
 async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
     query = query.strip()
     if not query:
         return [], '', 0
 
-    # 1. Super Fast: Text Search (Indexed) - ये सबसे पहले try करेगा
+    redis_conn = await get_redis()
+    cache_key = f"sr:{query.lower()}:{lang or 'none'}:{max_results}:{offset}"
+    if redis_conn:
+        try:
+            cached = await redis_conn.get(cache_key)
+            if cached:
+                data = json.loads(cached)
+                return data['files'], data['next_offset'], data['total']
+        except Exception as e:
+            print(f"Redis cache error: {e}")
+
     try:
         filter = {'$text': {'$search': query}}
         cursor = Media.find(filter).sort([('score', {'$meta': 'textScore'})]).limit(100)
         files = await cursor.to_list(length=100)
         if files:
-            # Language filter (अगर लागू हो)
             if lang:
                 files = [f for f in files if lang in f.file_name.lower()]
-            # Pagination
             total = len(files)
             if offset >= total:
                 return [], '', total
             next_offset = offset + max_results
-            return files[offset:next_offset], str(next_offset) if next_offset < total else '', total
+            result_files = files[offset:next_offset]
+            next_offset_str = str(next_offset) if next_offset < total else ''
+            if redis_conn:
+                try:
+                    serializable = []
+                    for f in result_files:
+                        d = {
+                            'file_id': f.file_id,
+                            'file_name': f.file_name,
+                            'file_size': f.file_size,
+                            'caption': f.caption,
+                            'file_ref': f.file_ref,
+                            'mime_type': f.mime_type,
+                            'file_type': f.file_type
+                        }
+                        serializable.append(d)
+                    await redis_conn.setex(cache_key, 300, json.dumps({'files': serializable, 'next_offset': next_offset_str, 'total': total}))
+                except:
+                    pass
+            return result_files, next_offset_str, total
     except Exception as e:
-        print(f"Text search fallback due to: {e}")
+        print(f"Text search fallback: {e}")
 
-    # 2. Backup: Prefix Regex (जल्दी के लिए "^" use किया है, ताकि Index लगे)
     try:
-        # अगर query में स्पेस है तो उसे ठीक करें
         search_query = re.escape(query)
-        regex = re.compile(f"^{search_query}", re.IGNORECASE)  # "^" से शुरू होने वाली files
+        regex = re.compile(f"^{search_query}", re.IGNORECASE)
         filter = {'file_name': regex}
-        # Index hint देना (MongoDB को बताओ file_name index use करे)
         cursor = Media.find(filter).hint([('file_name', 1)]).limit(100)
         files = await cursor.to_list(length=100)
-        
         if lang:
             files = [f for f in files if lang in f.file_name.lower()]
-        
         total = len(files)
         if offset >= total:
             return [], '', total
         next_offset = offset + max_results
-        return files[offset:next_offset], str(next_offset) if next_offset < total else '', total
+        result_files = files[offset:next_offset]
+        next_offset_str = str(next_offset) if next_offset < total else ''
+        if redis_conn:
+            try:
+                serializable = []
+                for f in result_files:
+                    d = {
+                        'file_id': f.file_id,
+                        'file_name': f.file_name,
+                        'file_size': f.file_size,
+                        'caption': f.caption,
+                        'file_ref': f.file_ref,
+                        'mime_type': f.mime_type,
+                        'file_type': f.file_type
+                    }
+                    serializable.append(d)
+                await redis_conn.setex(cache_key, 300, json.dumps({'files': serializable, 'next_offset': next_offset_str, 'total': total}))
+            except:
+                pass
+        return result_files, next_offset_str, total
     except Exception as e:
         print(f"Regex search error: {e}")
         return [], '', 0
