@@ -1,3 +1,4 @@
+import os
 import logging
 from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid
 from info import AUTH_CHANNEL, LONG_IMDB_DESCRIPTION, IS_VERIFY
@@ -9,13 +10,13 @@ from pyrogram import enums
 import pytz
 import time
 import re
-import os 
 from shortzy import Shortzy
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from database.users_chats_db import db
 import requests
 import aiohttp
+import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -35,6 +36,21 @@ class temp(object):
     USERS_CANCEL = False
     GROUPS_CANCEL = False    
     CHAT = {}
+
+# -------- 🚀 REDIS CACHE (info.py पर निर्भर नहीं) --------
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+_redis_client = None
+async def get_redis():
+    global _redis_client
+    if _redis_client is None:
+        try:
+            _redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+            await _redis_client.ping()
+            print("✅ Redis connected successfully!")
+        except Exception as e:
+            print(f"⚠️ Redis connection failed (caching disabled): {e}")
+            _redis_client = None
+    return _redis_client
 
 async def is_req_subscribed(bot, query):
     if await db.find_join_req(query.from_user.id):
