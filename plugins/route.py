@@ -1,11 +1,51 @@
 from aiohttp import web
 from database.users_chats_db import db
-from utils import get_settings, save_group_settings
+from utils import get_settings, save_group_settings, get_hash
+from info import BIN_CHANNEL, BOT_TOKEN
 import json
 import html
 
+# Global variable to store bot instance (set from bot.py)
+_bot = None
+
+def set_bot(bot_instance):
+    global _bot
+    _bot = bot_instance
+
 routes = web.RouteTableDef()
 
+# ---------- 🔥 STREAMING & DOWNLOAD HANDLERS (404 Fix) ----------
+@routes.get("/watch/{msg_id}")
+async def watch_handler(request):
+    """Watch Online - Direct Redirect to Telegram CDN (Super Fast, Zero Load)"""
+    global _bot
+    if not _bot:
+        return web.Response(text="Bot is not ready yet.", status=500)
+    
+    msg_id = int(request.match_info['msg_id'])
+    
+    try:
+        # BIN_CHANNEL से Message फेच करें (जहाँ bot ने file भेजी थी)
+        msg = await _bot.get_messages(chat_id=BIN_CHANNEL, message_ids=msg_id)
+        if not msg or not msg.media:
+            return web.Response(text="File not found or expired.", status=404)
+        
+        # Telegram CDN का Direct URL बनाएं
+        file_path = await _bot.get_file(msg.media.file_id)
+        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+        
+        # User को सीधा Telegram के CDN पर Redirect करें (तेज़ और Free)
+        raise web.HTTPFound(download_url)
+    except Exception as e:
+        print(f"Streaming error: {e}")
+        return web.Response(text=f"Error: {str(e)}", status=500)
+
+@routes.get("/{msg_id}")
+async def download_handler(request):
+    """Fast Download - Same as Watch, Redirect to CDN"""
+    return await watch_handler(request)
+
+# ---------- DASHBOARD ROUTES (Group Owners के लिए) ----------
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response({"status": "🚀 Bot is running!", "dashboard": "/dashboard"})
@@ -26,7 +66,7 @@ async def dashboard(request):
     def get_val(key, default=''):
         return settings.get(key, default)
     
-    # ---------- FIX: \n को f-string के बाहर रखा (Error का कारण) ----------
+    # FIX: \n वाली डिफॉल्ट वैल्यू को f-string से बाहर रखा
     caption_default = "📁 {file_name}\n📦 {file_size}"
     template_default = "🎬 {title}\n⭐ {rating}/10"
     
@@ -82,7 +122,7 @@ async def dashboard(request):
                     <div class="note">⚠️ Bot must be Admin in this group.</div>
                 </div>
 
-                <!-- ============ TOGGLES ============ -->
+                <!-- TOGGLES -->
                 <div class="toggle-section">
                     <div class="section-title"><i class="bi bi-toggle-on"></i> Feature Toggles</div>
                     <div class="toggle-item">
@@ -115,7 +155,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- ============ TIME MANAGEMENT ============ -->
+                <!-- TIME -->
                 <div class="section-title"><i class="bi bi-hourglass-split"></i> Verification Time (Seconds)</div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -128,7 +168,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- ============ SHORTNER 1 (1st Verify) ============ -->
+                <!-- SHORTNER 1 -->
                 <div class="section-title"><i class="bi bi-1-circle"></i> 1st Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #4e73df;">
                     <div class="row g-2">
@@ -143,7 +183,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- ============ SHORTNER 2 (2nd Verify) ============ -->
+                <!-- SHORTNER 2 -->
                 <div class="section-title"><i class="bi bi-2-circle"></i> 2nd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #f1c40f;">
                     <div class="row g-2">
@@ -158,7 +198,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- ============ SHORTNER 3 (3rd Verify) ============ -->
+                <!-- SHORTNER 3 -->
                 <div class="section-title"><i class="bi bi-3-circle"></i> 3rd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #e74c3c;">
                     <div class="row g-2">
@@ -173,16 +213,14 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- ============ MISC ============ -->
+                <!-- MISC -->
                 <div class="section-title"><i class="bi bi-gear"></i> Caption & Template</div>
                 <div class="mb-3">
                     <label class="form-label">File Caption</label>
-                    <!-- FIX: Direct default variable use kiya -->
                     <textarea name="caption" class="form-control" rows="2">{get_val('caption', caption_default)}</textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">IMDB Template</label>
-                    <!-- FIX: Direct default variable use kiya -->
                     <textarea name="template" class="form-control" rows="2">{get_val('template', template_default)}</textarea>
                 </div>
 
@@ -225,9 +263,7 @@ async def update_settings(request):
         'shortner', 'api', 
         'shortner_two', 'api_two', 
         'shortner_three', 'api_three', 
-        'tutorial',      # 1st verify tutorial
-        'tutorial_two',  # 2nd verify tutorial
-        'tutorial_three',# 3rd verify tutorial
+        'tutorial', 'tutorial_two', 'tutorial_three',
         'caption', 'template'
     ]
     for field in text_fields:
