@@ -37,6 +37,13 @@ async def start(client:Client, message):
             key = "second_time_verified" if await db.is_user_verified(user_id) else "last_verified"
         current_time = datetime.now(tz=ist_timezone)
         result = await db.update_notcopy_user(user_id, {key:current_time})
+        # ---------- 🆕 EARNINGS LOG (Verification पर अपने आप Log होगा) ----------
+        if key == "third_time_verified": 
+            num = 3 
+        else: 
+            num =  2 if key == "second_time_verified" else 1 
+        await db.add_earnings_log(user_id, grp_id, num)
+        # --------------------------------------------------------------------
         await db.update_verify_id_info(user_id, verify_id, {"verified":True})
         if key == "third_time_verified": 
             num = 3 
@@ -401,7 +408,7 @@ async def send_msg(bot, message):
         out = "\n\n"
         success_count = 0
         try:
-            users = await db.get_all_users()
+            # 🚀 FIX: 'users' variable पूरी तरह हटाई (बेकार थी)
             for target_id in target_ids:
                 try:
                     user = await bot.get_users(target_id)
@@ -707,24 +714,18 @@ async def set_shortner_3(c, m):
     if not userid:
         return await m.reply(f"<b>⚠️ ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴀᴅᴍɪɴ ᴏꜰ ᴛʜɪs ɢʀᴏᴜᴘ</b>")
     chat_type = m.chat.type
+    
+    # 🚀 FIX: Private Chat में यह कमांड काम नहीं करेगी (क्योंकि active_connection फंक्शन नहीं है)
     if chat_type == enums.ChatType.PRIVATE:
-        grpid = await active_connection(str(userid))
-        if grpid is not None:
-            grp_id = grpid
-            try:
-                chat = await client.get_chat(grpid)
-                title = chat.title
-            except:
-                await m.reply_text("<b>ᴍᴀᴋᴇ sᴜʀᴇ ɪ ᴀᴍ ᴘʀᴇsᴇɴᴛ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ 🫤...</b>", quote=True)
-                return
-        else:
-            await m.reply_text("<b>‼️ ɪ ᴀᴍ ɴᴏᴛ ᴄᴏɴɴᴇᴄᴛᴇᴅ ᴛᴏ ɢʀᴏᴜᴘ...</b>", quote=True)
-            return
-    elif chat_type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        await m.reply_text("<b>⚠️ यह कमांड सिर्फ ग्रुप में काम करेगी, प्राइवेट में नहीं।</b>", quote=True)
+        return
+    
+    if chat_type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         grp_id = m.chat.id
         title = m.chat.title
     else:
         return
+    
     st = await c.get_chat_member(grp_id, userid)
     if (
             st.status != enums.ChatMemberStatus.ADMINISTRATOR
@@ -850,3 +851,34 @@ async def fix_database_speed(client, message):
         await status.edit("✅ **SUCCESS!** \n\nआपका Database अब **Super Fast** हो गया है!\n\n📌 अब कोई भी मूवी सर्च करके देखें - रिजल्ट **झटके** से आएंगे 🚀")
     except Exception as e:
         await status.edit(f"❌ **Error:** {e}\n\nकृपया अपनी MongoDB Connection चेक करें।")
+
+# ---------- 🆕 EARNINGS COMMAND (Group Admins के लिए) ----------
+@Client.on_message(filters.command('earnings'))
+async def earnings_stats(client, message):
+    user_id = message.from_user.id if message.from_user else None
+    if not user_id:
+        return await message.reply("<b>⚠️ आप Anonymous Admin हो, यह कमांड नहीं चल सकती।</b>")
+    
+    chat_type = message.chat.type
+    if chat_type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        return await message.reply_text("<b>⚠️ यह कमांड सिर्फ ग्रुप में ही चलेगी।</b>")
+    
+    grp_id = message.chat.id
+    if not await is_check_admin(client, grp_id, user_id):
+        return await message.reply_text('<b>⚠️ आप इस ग्रुप के Admin नहीं हैं।</b>')
+    
+    stats_7d = await db.get_earnings_stats(grp_id, days=7)
+    stats_total = await db.get_earnings_stats(grp_id, days=9999)
+    
+    text = f"<b>📊 आपके ग्रुप (ID: {grp_id}) की कमाई (Earnings) रिपोर्ट:</b>\n\n"
+    text += f"<u>📆 पिछले 7 दिनों में:</u>\n"
+    for key, value in stats_7d.items():
+        text += f"   • {key}: <code>{value}</code> Verifications\n"
+    
+    text += f"\n<u>📆 अब तक कुल (Total):</u>\n"
+    for key, value in stats_total.items():
+        text += f"   • {key}: <code>{value}</code> Verifications\n"
+    
+    text += f"\n💡 <i>हर Verification आपके Shortner पर एक क्लिक है। जितना ज्यादा Verification, उतनी ज्यादा कमाई!</i>"
+    
+    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
