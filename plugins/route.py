@@ -1,6 +1,6 @@
 from aiohttp import web
 from database.users_chats_db import db
-from utils import get_settings, save_group_settings, get_hash
+from utils import get_settings, save_group_settings
 from info import BIN_CHANNEL, BOT_TOKEN
 import json
 import html
@@ -285,13 +285,17 @@ async def watch_handler(request):
     except ValueError:
         return web.Response(text="Invalid message ID", status=400)
     
+    # ---------- 🔥 FIX: BIN_CHANNEL चेक करें ----------
+    if not BIN_CHANNEL:
+        return web.Response(text="BIN_CHANNEL not configured.", status=500)
+    
     try:
         # BIN_CHANNEL से Message फेच करें
-        msg = await _bot.get_messages(chat_id=BIN_CHANNEL, message_ids=msg_id)
+        msg = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=msg_id)
         if not msg:
             return web.Response(text="Message not found.", status=404)
         
-        # ---------- 🔥 FIX: सही file_id निकालें ----------
+        # सही file_id निकालें
         file_id = None
         if msg.document:
             file_id = msg.document.file_id
@@ -313,8 +317,9 @@ async def watch_handler(request):
         file_path = await _bot.get_file(file_id)
         download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
         
-        # User को सीधा Telegram CDN पर Redirect करें
+        # सीधा Redirect (Super Fast, Zero Server Load)
         raise web.HTTPFound(download_url)
+    
     except web.HTTPFound:
         raise
     except Exception as e:
