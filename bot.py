@@ -12,6 +12,7 @@ import datetime
 import pytz
 from aiohttp import web
 from plugins import web_server, check_expired_premium
+from plugins.route import set_bot  # <--- 🔥 यह नई Import लाइन है (404 Fix के लिए)
 import asyncio
 import time
 
@@ -33,6 +34,11 @@ class Bot(Client):
         temp.BANNED_USERS = b_users
         temp.BANNED_CHATS = b_chats
         await super().start()
+        
+        # ---------- 🔥 यह नई लाइन है (404 Fix के लिए) ----------
+        set_bot(self)  # ये Route को Bot Instance बताता है ताकि वो Files भेज सके
+        # ----------------------------------------------------
+        
         await Media.ensure_indexes()
         me = await self.get_me()
         temp.ME = me.id
