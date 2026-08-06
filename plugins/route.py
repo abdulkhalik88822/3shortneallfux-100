@@ -14,38 +14,10 @@ def set_bot(bot_instance):
 
 routes = web.RouteTableDef()
 
-# ---------- 🔥 STREAMING & DOWNLOAD HANDLERS (404 Fix) ----------
-@routes.get("/watch/{msg_id}")
-async def watch_handler(request):
-    """Watch Online - Direct Redirect to Telegram CDN (Super Fast, Zero Load)"""
-    global _bot
-    if not _bot:
-        return web.Response(text="Bot is not ready yet.", status=500)
-    
-    msg_id = int(request.match_info['msg_id'])
-    
-    try:
-        # BIN_CHANNEL से Message फेच करें (जहाँ bot ने file भेजी थी)
-        msg = await _bot.get_messages(chat_id=BIN_CHANNEL, message_ids=msg_id)
-        if not msg or not msg.media:
-            return web.Response(text="File not found or expired.", status=404)
-        
-        # Telegram CDN का Direct URL बनाएं
-        file_path = await _bot.get_file(msg.media.file_id)
-        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-        
-        # User को सीधा Telegram के CDN पर Redirect करें (तेज़ और Free)
-        raise web.HTTPFound(download_url)
-    except Exception as e:
-        print(f"Streaming error: {e}")
-        return web.Response(text=f"Error: {str(e)}", status=500)
+# ============================================
+# 🔥 IMPORTANT: STATIC ROUTES (/, /dashboard) को पहले रखें
+# ============================================
 
-@routes.get("/{msg_id}")
-async def download_handler(request):
-    """Fast Download - Same as Watch, Redirect to CDN"""
-    return await watch_handler(request)
-
-# ---------- DASHBOARD ROUTES (Group Owners के लिए) ----------
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response({"status": "🚀 Bot is running!", "dashboard": "/dashboard"})
@@ -295,3 +267,61 @@ async def update_settings(request):
         """, 
         content_type='text/html'
     )
+
+
+# ============================================
+# 🔥 DYNAMIC ROUTES (Watch/Download) - ये नीचे रखें
+# ============================================
+
+@routes.get("/watch/{msg_id}")
+async def watch_handler(request):
+    """Watch Online - Direct Redirect to Telegram CDN (Super Fast, Zero Load)"""
+    global _bot
+    if not _bot:
+        return web.Response(text="Bot is not ready yet.", status=500)
+    
+    try:
+        msg_id = int(request.match_info['msg_id'])
+    except ValueError:
+        return web.Response(text="Invalid message ID", status=400)
+    
+    try:
+        # BIN_CHANNEL से Message फेच करें
+        msg = await _bot.get_messages(chat_id=BIN_CHANNEL, message_ids=msg_id)
+        if not msg:
+            return web.Response(text="Message not found.", status=404)
+        
+        # ---------- 🔥 FIX: सही file_id निकालें ----------
+        file_id = None
+        if msg.document:
+            file_id = msg.document.file_id
+        elif msg.video:
+            file_id = msg.video.file_id
+        elif msg.audio:
+            file_id = msg.audio.file_id
+        elif msg.photo:
+            file_id = msg.photo.file_id
+        elif msg.animation:
+            file_id = msg.animation.file_id
+        else:
+            return web.Response(text="No media found in this message.", status=404)
+        
+        if not file_id:
+            return web.Response(text="File ID not found.", status=404)
+        
+        # Telegram CDN का Direct URL बनाएं
+        file_path = await _bot.get_file(file_id)
+        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+        
+        # User को सीधा Telegram CDN पर Redirect करें
+        raise web.HTTPFound(download_url)
+    except web.HTTPFound:
+        raise
+    except Exception as e:
+        print(f"Streaming error: {e}")
+        return web.Response(text=f"Error: {str(e)}", status=500)
+
+@routes.get("/{msg_id}")
+async def download_handler(request):
+    """Fast Download - Same as Watch, Redirect to CDN"""
+    return await watch_handler(request)
