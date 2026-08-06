@@ -37,6 +37,7 @@ class Database:
         self.users = mydb.uersz
         self.req = mydb.requests
         self.groups = mydb.groupsz
+        self.earnings = mydb.earnings
 
     def new_user(self, id, name):
         return dict(
@@ -286,5 +287,28 @@ class Database:
             await self.groups.update_one({"id": group_data["id"]}, {"$set": group_data})
         else:
             await self.groups.insert_one(group_data)
+
+    # 🆕 EARNINGS ANALYTICS
+    async def add_earnings_log(self, user_id, group_id, verify_type):
+        log_data = {
+            "user_id": user_id,
+            "group_id": group_id,
+            "verify_type": verify_type,
+            "timestamp": datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+        }
+        await self.earnings.insert_one(log_data)
+
+    async def get_earnings_stats(self, group_id, days=7):
+        cutoff = datetime.datetime.now(pytz.timezone('Asia/Kolkata')) - datetime.timedelta(days=days)
+        pipeline = [
+            {"$match": {"group_id": group_id, "timestamp": {"$gte": cutoff}}},
+            {"$group": {"_id": "$verify_type", "count": {"$sum": 1}}}
+        ]
+        stats = {}
+        async for doc in self.earnings.aggregate(pipeline):
+            stats[f"Verify {doc['_id']}"] = doc['count']
+        total = sum(stats.values())
+        stats["Total"] = total
+        return stats
         
 db = Database()
