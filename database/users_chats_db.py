@@ -14,7 +14,9 @@ class Database:
             'auto_delete': AUTO_DELETE,
             'template': IMDB_TEMPLATE,
             'caption': FILE_CAPTION,
-            'tutorial': TUTORIAL,
+            'tutorial': TUTORIAL,          # 1st Verify Tutorial
+            'tutorial_two': TUTORIAL,      # 🆕 2nd Verify Tutorial
+            'tutorial_three': TUTORIAL,    # 🆕 3rd Verify Tutorial
             'shortner': SHORTENER_WEBSITE,
             'api': SHORTENER_API,
             'shortner_two': SHORTENER_WEBSITE2,
