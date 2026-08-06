@@ -26,6 +26,10 @@ async def dashboard(request):
     def get_val(key, default=''):
         return settings.get(key, default)
     
+    # ---------- FIX: \n को f-string के बाहर रखा (Error का कारण) ----------
+    caption_default = "📁 {file_name}\n📦 {file_size}"
+    template_default = "🎬 {title}\n⭐ {rating}/10"
+    
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -173,11 +177,13 @@ async def dashboard(request):
                 <div class="section-title"><i class="bi bi-gear"></i> Caption & Template</div>
                 <div class="mb-3">
                     <label class="form-label">File Caption</label>
-                    <textarea name="caption" class="form-control" rows="2">{get_val('caption', '📁 {file_name}\n📦 {file_size}')}</textarea>
+                    <!-- FIX: Direct default variable use kiya -->
+                    <textarea name="caption" class="form-control" rows="2">{get_val('caption', caption_default)}</textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">IMDB Template</label>
-                    <textarea name="template" class="form-control" rows="2">{get_val('template', '🎬 {title}\n⭐ {rating}/10')}</textarea>
+                    <!-- FIX: Direct default variable use kiya -->
+                    <textarea name="template" class="form-control" rows="2">{get_val('template', template_default)}</textarea>
                 </div>
 
                 <button type="submit" class="btn-update"><i class="bi bi-cloud-upload"></i> Update Settings</button>
