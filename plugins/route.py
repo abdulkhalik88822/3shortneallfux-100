@@ -5,7 +5,6 @@ from info import BIN_CHANNEL, BOT_TOKEN
 import json
 import html
 
-# Global variable to store bot instance (set from bot.py)
 _bot = None
 
 def set_bot(bot_instance):
@@ -14,18 +13,12 @@ def set_bot(bot_instance):
 
 routes = web.RouteTableDef()
 
-# ============================================
-# 🔥 STATIC ROUTES (/, /dashboard) - पहले डिफाइन
-# ============================================
-
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response({"status": "🚀 Bot is running!", "dashboard": "/dashboard"})
 
 @routes.get("/dashboard")
 async def dashboard(request):
-    """Advanced, Clean Dashboard for Group Owners"""
-    
     group_id = request.query.get('group_id', '')
     settings = {}
     if group_id and group_id.startswith('-'):
@@ -38,7 +31,6 @@ async def dashboard(request):
     def get_val(key, default=''):
         return settings.get(key, default)
     
-    # FIX: \n वाली डिफॉल्ट वैल्यू को f-string से बाहर रखा
     caption_default = "📁 {file_name}\n📦 {file_size}"
     template_default = "🎬 {title}\n⭐ {rating}/10"
     
@@ -94,7 +86,6 @@ async def dashboard(request):
                     <div class="note">⚠️ Bot must be Admin in this group.</div>
                 </div>
 
-                <!-- TOGGLES -->
                 <div class="toggle-section">
                     <div class="section-title"><i class="bi bi-toggle-on"></i> Feature Toggles</div>
                     <div class="toggle-item">
@@ -127,7 +118,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- TIME -->
                 <div class="section-title"><i class="bi bi-hourglass-split"></i> Verification Time (Seconds)</div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -140,7 +130,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 1 -->
                 <div class="section-title"><i class="bi bi-1-circle"></i> 1st Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #4e73df;">
                     <div class="row g-2">
@@ -155,7 +144,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 2 -->
                 <div class="section-title"><i class="bi bi-2-circle"></i> 2nd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #f1c40f;">
                     <div class="row g-2">
@@ -170,7 +158,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 3 -->
                 <div class="section-title"><i class="bi bi-3-circle"></i> 3rd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #e74c3c;">
                     <div class="row g-2">
@@ -185,7 +172,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- MISC -->
                 <div class="section-title"><i class="bi bi-gear"></i> Caption & Template</div>
                 <div class="mb-3">
                     <label class="form-label">File Caption</label>
@@ -220,17 +206,14 @@ async def update_settings(request):
 
     current_settings = await get_settings(grp_id)
 
-    # Toggles
     for field in ['auto_filter', 'file_secure', 'imdb', 'spell_check', 'auto_delete', 'link', 'is_verify']:
         current_settings[field] = True if data.get(field) else False
 
-    # Time
     for field in ['verify_time', 'third_verify_time']:
         val = data.get(field)
         if val and str(val).isdigit():
             current_settings[field] = int(val)
 
-    # Text Fields (Including 3 Tutorials)
     text_fields = [
         'shortner', 'api', 
         'shortner_two', 'api_two', 
@@ -243,7 +226,6 @@ async def update_settings(request):
         if val is not None and val.strip() != '':
             current_settings[field] = val.strip()
 
-    # Save all
     for key, value in current_settings.items():
         await save_group_settings(grp_id, key, value)
 
@@ -268,14 +250,9 @@ async def update_settings(request):
         content_type='text/html'
     )
 
-
-# ============================================
-# 🔥 DYNAMIC ROUTES (Watch/Download) - YEH FIXED VERSION HAI
-# ============================================
-
+# ---------- 🔥 FIXED: Watch/Download with safe error handling ----------
 @routes.get("/watch/{msg_id}")
 async def watch_handler(request):
-    """Watch Online - Direct Redirect to Telegram CDN (Super Fast, Zero Load)"""
     global _bot
     if not _bot:
         return web.Response(text="Bot is not ready yet.", status=500)
@@ -285,24 +262,16 @@ async def watch_handler(request):
     except ValueError:
         return web.Response(text="Invalid message ID", status=400)
     
-    # ---------- 🔥 FIX: BIN_CHANNEL चेक करें ----------
     if not BIN_CHANNEL:
         return web.Response(text="BIN_CHANNEL not configured.", status=500)
     
     try:
-        # ---------- 🔥 FIX: LIST के रूप में भेजें (Async Generator Error ठीक) ----------
-        # जब [msg_id] (List) भेजते हैं, तो Pyrogram हमेशा एक List लौटाता है, जो await हो सकता है।
+        # ---------- 🔥 FIX: List me pass karo (async generator nahi) ----------
         messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
-        
-        if not messages:
+        if not messages or not messages[0]:
             return web.Response(text="Message not found.", status=404)
         
-        # List का पहला Element हमारी Message है
         msg = messages[0]
-        if not msg:
-            return web.Response(text="Message not found.", status=404)
-        
-        # सही file_id निकालें
         file_id = None
         if msg.document:
             file_id = msg.document.file_id
@@ -320,11 +289,10 @@ async def watch_handler(request):
         if not file_id:
             return web.Response(text="File ID not found.", status=404)
         
-        # Telegram CDN का Direct URL बनाएं
-        file_path = await _bot.get_file(file_id)
-        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+        # ---------- 🔥 FIX: get_file ko await karo (ye coroutine hai) ----------
+        file_obj = await _bot.get_file(file_id)
+        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}"
         
-        # सीधा Redirect (Super Fast, Zero Server Load)
         raise web.HTTPFound(download_url)
     
     except web.HTTPFound:
@@ -335,5 +303,4 @@ async def watch_handler(request):
 
 @routes.get("/{msg_id}")
 async def download_handler(request):
-    """Fast Download - Same as Watch, Redirect to CDN"""
     return await watch_handler(request)
