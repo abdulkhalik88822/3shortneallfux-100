@@ -697,6 +697,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        
+        # 🔥 FIX: Safe int conversion
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data received.", show_alert=True)
+            
         buttons = [[
             InlineKeyboardButton("✅️ ᴀᴄᴄᴇᴘᴛ ᴛʜɪꜱ ʀᴇǫᴜᴇꜱᴛ ✅️", callback_data=f"accept#{user_id}#{msg_id}")
         ],[
@@ -715,6 +723,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("✗ ʀᴇᴊᴇᴄᴛ ✗", callback_data=f"rj_alert#{user_id}")
         ]]
@@ -739,6 +752,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("😊 ᴀʟʀᴇᴀᴅʏ ᴀᴠᴀɪʟᴀʙʟᴇ 😊", callback_data=f"already_available#{user_id}#{msg_id}")
         ],[
@@ -763,6 +781,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("🚫 ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ 🚫", callback_data=f"na_alert#{user_id}")
         ]]
@@ -787,6 +810,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("🙂 ᴜᴘʟᴏᴀᴅᴇᴅ 🙂", callback_data=f"ul_alert#{user_id}")
         ]]
@@ -811,6 +839,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("🫤 ᴀʟʀᴇᴀᴅʏ ᴀᴠᴀɪʟᴀʙʟᴇ 🫤", callback_data=f"aa_alert#{user_id}")
         ]]
@@ -835,6 +868,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("😌 ᴜᴘʟᴏᴀᴅ ɪɴ 1 ʜᴏᴜʀꜱ 😌", callback_data=f"upload_alert#{user_id}")
         ]]
@@ -859,6 +897,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         ident, user_id, msg_id = query.data.split("#")
         chnl_id = query.message.chat.id
         userid = query.from_user.id
+        try:
+            user_id = int(user_id)
+            msg_id = int(msg_id)
+        except ValueError:
+            return await query.answer("Invalid data.", show_alert=True)
         buttons = [[
             InlineKeyboardButton("⚠️ ᴛᴇʟʟ ᴍᴇ ʏᴇᴀʀꜱ & ʟᴀɴɢᴜᴀɢᴇ ⚠️", callback_data=f"yrs_alert#{user_id}")
         ]]
