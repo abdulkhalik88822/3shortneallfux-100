@@ -4,8 +4,8 @@ from utils import get_settings, save_group_settings
 from info import BIN_CHANNEL, BOT_TOKEN
 import json
 import html
+import asyncio
 
-# Global variable to store bot instance (set from bot.py)
 _bot = None
 
 def set_bot(bot_instance):
@@ -14,18 +14,12 @@ def set_bot(bot_instance):
 
 routes = web.RouteTableDef()
 
-# ============================================
-# 🔥 STATIC ROUTES (/, /dashboard)
-# ============================================
-
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response({"status": "🚀 Bot is running!", "dashboard": "/dashboard"})
 
 @routes.get("/dashboard")
 async def dashboard(request):
-    """Advanced, Clean Dashboard for Group Owners"""
-    
     group_id = request.query.get('group_id', '')
     settings = {}
     if group_id and group_id.startswith('-'):
@@ -93,7 +87,6 @@ async def dashboard(request):
                     <div class="note">⚠️ Bot must be Admin in this group.</div>
                 </div>
 
-                <!-- TOGGLES -->
                 <div class="toggle-section">
                     <div class="section-title"><i class="bi bi-toggle-on"></i> Feature Toggles</div>
                     <div class="toggle-item">
@@ -126,7 +119,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- TIME -->
                 <div class="section-title"><i class="bi bi-hourglass-split"></i> Verification Time (Seconds)</div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -139,7 +131,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 1 -->
                 <div class="section-title"><i class="bi bi-1-circle"></i> 1st Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #4e73df;">
                     <div class="row g-2">
@@ -154,7 +145,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 2 -->
                 <div class="section-title"><i class="bi bi-2-circle"></i> 2nd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #f1c40f;">
                     <div class="row g-2">
@@ -169,7 +159,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- SHORTNER 3 -->
                 <div class="section-title"><i class="bi bi-3-circle"></i> 3rd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #e74c3c;">
                     <div class="row g-2">
@@ -184,7 +173,6 @@ async def dashboard(request):
                     </div>
                 </div>
 
-                <!-- MISC -->
                 <div class="section-title"><i class="bi bi-gear"></i> Caption & Template</div>
                 <div class="mb-3">
                     <label class="form-label">File Caption</label>
@@ -219,17 +207,14 @@ async def update_settings(request):
 
     current_settings = await get_settings(grp_id)
 
-    # Toggles
     for field in ['auto_filter', 'file_secure', 'imdb', 'spell_check', 'auto_delete', 'link', 'is_verify']:
         current_settings[field] = True if data.get(field) else False
 
-    # Time
     for field in ['verify_time', 'third_verify_time']:
         val = data.get(field)
         if val and str(val).isdigit():
             current_settings[field] = int(val)
 
-    # Text Fields (Including 3 Tutorials)
     text_fields = [
         'shortner', 'api', 
         'shortner_two', 'api_two', 
@@ -242,7 +227,6 @@ async def update_settings(request):
         if val is not None and val.strip() != '':
             current_settings[field] = val.strip()
 
-    # Save all
     for key, value in current_settings.items():
         await save_group_settings(grp_id, key, value)
 
@@ -269,12 +253,11 @@ async def update_settings(request):
 
 
 # ============================================
-# 🔥 DYNAMIC ROUTES (Watch/Download) - DEBUG VERSION
+# 🔥 100% BULLETPROOF WATCH/DOWNLOAD (Har tarah ke error ko handle karega)
 # ============================================
 
 @routes.get("/watch/{msg_id}")
 async def watch_handler(request):
-    """Watch Online - Debug Version (Console Logs print karega)"""
     global _bot
     if not _bot:
         return web.Response(text="Bot is not ready yet.", status=500)
@@ -288,30 +271,16 @@ async def watch_handler(request):
         return web.Response(text="BIN_CHANNEL not configured.", status=500)
     
     try:
-        # 🔥 DEBUG: Console par Print karega
-        print(f"🔍 [DEBUG] Fetching message from BIN_CHANNEL: {BIN_CHANNEL}")
-        print(f"🔍 [DEBUG] Message ID: {msg_id}")
-
+        # 🔥🔥🔥 YEH MAGIC LINE HAI - LIST me bhejna hi sahi tarika hai
+        # Agar koi error aata hai toh hum try-except me catch karenge
         messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
         
         if not messages or not messages[0]:
-            print(f"❌ [DEBUG] No message found for ID: {msg_id}")
-            return web.Response(text="Message not found.", status=404)
+            return web.Response(text="Message not found. Check console.", status=404)
         
         msg = messages[0]
         
-        # 🔥 DEBUG: Message ki details print karo
-        print(f"✅ [DEBUG] Message fetched successfully.")
-        print(f"   📄 Message ID: {msg.id}")
-        print(f"   📄 Chat ID: {msg.chat.id}")
-        print(f"   📄 Has Document: {bool(msg.document)}")
-        print(f"   📄 Has Video: {bool(msg.video)}")
-        print(f"   📄 Has Audio: {bool(msg.audio)}")
-        print(f"   📄 Has Photo: {bool(msg.photo)}")
-        print(f"   📄 Has Animation: {bool(msg.animation)}")
-        print(f"   📄 Is Empty / Deleted: {msg.empty}")
-        
-        # सही file_id निकालें
+        # Media check
         file_id = None
         if msg.document:
             file_id = msg.document.file_id
@@ -323,33 +292,22 @@ async def watch_handler(request):
             file_id = msg.photo.file_id
         elif msg.animation:
             file_id = msg.animation.file_id
-        else:
-            # 🔥 DEBUG: Agar Media नहीं है, तो पूरा Message Object Print करो
-            print(f"❌ [DEBUG] No media found! Full message object: {msg}")
-            return web.Response(text=f"No media found. MsgID={msg_id}, ChatID={BIN_CHANNEL}. Check console logs.", status=404)
         
         if not file_id:
-            print(f"❌ [DEBUG] File ID is None despite having media attribute?")
-            return web.Response(text="File ID not found.", status=404)
+            # Agar media nahi mila toh yeh return karo
+            return web.Response(text=f"No media found in message {msg_id}.", status=404)
         
-        print(f"✅ [DEBUG] File ID extracted: {file_id[:20]}...")
-        
-        # File Path लें
         file_obj = await _bot.get_file(file_id)
         download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}"
         
-        print(f"✅ [DEBUG] Redirecting to: {download_url[:100]}...")
-        
-        # सीधा Redirect (Super Fast)
         raise web.HTTPFound(download_url)
     
     except web.HTTPFound:
         raise
     except Exception as e:
-        print(f"❌ [DEBUG] Streaming error: {e}")
+        print(f"Watch/Download Error: {e}")
         return web.Response(text=f"Error: {str(e)}", status=500)
 
 @routes.get("/{msg_id}")
 async def download_handler(request):
-    """Fast Download - Same as Watch"""
     return await watch_handler(request)
