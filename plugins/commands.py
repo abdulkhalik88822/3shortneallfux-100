@@ -11,7 +11,7 @@ from pyrogram.errors import ChatAdminRequired, FloodWait
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from database.ia_filterdb import Media, get_file_details, get_bad_files, unpack_new_file_id, ensure_indexes
 from database.users_chats_db import db
-from info import ADMINS, THREE_VERIFY_GAP, LOG_CHANNEL, USERNAME, VERIFY_IMG, IS_VERIFY, FILE_CAPTION, AUTH_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, LOG_API_CHANNEL, TWO_VERIFY_GAP, QR_CODE, DELETE_TIME, LINK_MODE, IS_VERIFY
+from info import ADMINS, THREE_VERIFY_GAP, LOG_CHANNEL, USERNAME, VERIFY_IMG, IS_VERIFY, FILE_CAPTION, AUTH_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, LOG_API_CHANNEL, TWO_VERIFY_GAP, QR_CODE, DELETE_TIME, LINK_MODE, REQUEST_CHANNEL, SHORTENER_WEBSITE3, SHORTENER_API3
 from utils import get_settings, save_group_settings, is_req_subscribed, get_size, get_shortlink, is_check_admin, get_status, temp, get_readable_time
 import re
 import json
@@ -37,13 +37,11 @@ async def start(client:Client, message):
             key = "second_time_verified" if await db.is_user_verified(user_id) else "last_verified"
         current_time = datetime.now(tz=ist_timezone)
         result = await db.update_notcopy_user(user_id, {key:current_time})
-        # ---------- 🆕 EARNINGS LOG (Verification पर अपने आप Log होगा) ----------
         if key == "third_time_verified": 
             num = 3 
         else: 
             num =  2 if key == "second_time_verified" else 1 
         await db.add_earnings_log(user_id, grp_id, num)
-        # --------------------------------------------------------------------
         await db.update_verify_id_info(user_id, verify_id, {"verified":True})
         if key == "third_time_verified": 
             num = 3 
@@ -408,7 +406,6 @@ async def send_msg(bot, message):
         out = "\n\n"
         success_count = 0
         try:
-            # 🚀 FIX: 'users' variable पूरी तरह हटाई (बेकार थी)
             for target_id in target_ids:
                 try:
                     user = await bot.get_users(target_id)
@@ -625,7 +622,7 @@ async def set_shortner_2(c, m):
         await m.reply_text(f"<b><u>💢 ᴇʀʀᴏʀ ᴏᴄᴄᴏᴜʀᴇᴅ!!</u>\n\nᴀᴜᴛᴏ ᴀᴅᴅᴇᴅ ʙᴏᴛ ᴏᴡɴᴇʀ ᴅᴇꜰᴜʟᴛ sʜᴏʀᴛɴᴇʀ\n\nɪꜰ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴄʜᴀɴɢᴇ ᴛʜᴇɴ ᴜsᴇ ᴄᴏʀʀᴇᴄᴛ ꜰᴏʀᴍᴀᴛ ᴏʀ ᴀᴅᴅ ᴠᴀʟɪᴅ sʜᴏʀᴛʟɪɴᴋ ᴅᴏᴍᴀɪɴ ɴᴀᴍᴇ & ᴀᴘɪ\n\nʏᴏᴜ ᴄᴀɴ ᴀʟsᴏ ᴄᴏɴᴛᴀᴄᴛ ᴏᴜʀ <a href=https://t.me/aks_bot_support>sᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ</a> ꜰᴏʀ sᴏʟᴠᴇ ᴛʜɪs ɪssᴜᴇ...\n\nʟɪᴋᴇ -\n\n`/set_shortner_2 mdiskshortner.link e7beb3c8f756dfa15d0bec495abc65f58c0dfa95`\n\n💔 ᴇʀʀᴏʀ - <code>{e}</code></b>", quote=True)
 
 @Client.on_message(filters.command('set_log_channel'))
-async def set_log(client, message):
+async def set_log(client, message):   # 🔥 FIXED: 'm' ki jagah 'message' use kiya
     grp_id = message.chat.id
     title = message.chat.title
     if not await is_check_admin(client, grp_id, message.from_user.id):
@@ -653,8 +650,8 @@ async def set_log(client, message):
         return await message.reply_text(f'<b><u>😐 ᴍᴀᴋᴇ sᴜʀᴇ ᴛʜɪs ʙᴏᴛ ᴀᴅᴍɪɴ ɪɴ ᴛʜᴀᴛ ᴄʜᴀɴɴᴇʟ...</u>\n\n💔 ᴇʀʀᴏʀ - <code>{e}</code></b>')
     await save_group_settings(grp_id, 'log', log)
     await message.reply_text(f"<b>✅ sᴜᴄᴄᴇssꜰᴜʟʟʏ sᴇᴛ ʏᴏᴜʀ ʟᴏɢ ᴄʜᴀɴɴᴇʟ ꜰᴏʀ {title}\n\nɪᴅ - `{log}`</b>", disable_web_page_preview=True)
-    user_id = m.from_user.id
-    user_info = f"@{m.from_user.username}" if m.from_user.username else f"{m.from_user.mention}"
+    user_id = message.from_user.id   # 🔥 FIXED: m ki jagah message
+    user_info = f"@{message.from_user.username}" if message.from_user.username else f"{message.from_user.mention}"
     link = (await client.get_chat(message.chat.id)).invite_link
     grp_link = f"[{message.chat.title}]({link})"
     log_message = f"#New_Log_Channel_Set\n\nName - {user_info}\nId - `{user_id}`\n\nLog channel id - `{log}`\nGroup link - {grp_link}"
@@ -715,7 +712,7 @@ async def set_shortner_3(c, m):
         return await m.reply(f"<b>⚠️ ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴀᴅᴍɪɴ ᴏꜰ ᴛʜɪs ɢʀᴏᴜᴘ</b>")
     chat_type = m.chat.type
     
-    # 🚀 FIX: Private Chat में यह कमांड काम नहीं करेगी (क्योंकि active_connection फंक्शन नहीं है)
+    # 🔥 FIX: Private Chat में यह कमांड काम नहीं करेगी
     if chat_type == enums.ChatType.PRIVATE:
         await m.reply_text("<b>⚠️ यह कमांड सिर्फ ग्रुप में काम करेगी, प्राइवेट में नहीं।</b>", quote=True)
         return
@@ -841,18 +838,15 @@ async def off_force_sub(client, message):
     await db.update_group(group_data)  
     await message.reply_text(f"Successfully Force Suscribe is removed now")
 
-# ---------- 🚀 NEW SUPER FAST SPEED FIX COMMAND ----------
 @Client.on_message(filters.command("speedfix") & filters.user(ADMINS))
 async def fix_database_speed(client, message):
     status = await message.reply("⚡ **Super Fast Indexing शुरू हो रही है...**\nकृपया 1-2 मिनट इंतज़ार करें।")
     try:
-        # नई Indexing function call करें (जो ia_filterdb.py में डाली है)
         await ensure_indexes()
         await status.edit("✅ **SUCCESS!** \n\nआपका Database अब **Super Fast** हो गया है!\n\n📌 अब कोई भी मूवी सर्च करके देखें - रिजल्ट **झटके** से आएंगे 🚀")
     except Exception as e:
         await status.edit(f"❌ **Error:** {e}\n\nकृपया अपनी MongoDB Connection चेक करें।")
 
-# ---------- 🆕 EARNINGS COMMAND (Group Admins के लिए) ----------
 @Client.on_message(filters.command('earnings'))
 async def earnings_stats(client, message):
     user_id = message.from_user.id if message.from_user else None
