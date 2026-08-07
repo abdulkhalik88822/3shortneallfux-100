@@ -5,6 +5,7 @@ from info import BIN_CHANNEL, BOT_TOKEN
 import json
 import html
 
+# Global variable to store bot instance (set from bot.py)
 _bot = None
 
 def set_bot(bot_instance):
@@ -13,12 +14,18 @@ def set_bot(bot_instance):
 
 routes = web.RouteTableDef()
 
+# ============================================
+# 🔥 STATIC ROUTES (/, /dashboard)
+# ============================================
+
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response({"status": "🚀 Bot is running!", "dashboard": "/dashboard"})
 
 @routes.get("/dashboard")
 async def dashboard(request):
+    """Advanced, Clean Dashboard for Group Owners"""
+    
     group_id = request.query.get('group_id', '')
     settings = {}
     if group_id and group_id.startswith('-'):
@@ -86,6 +93,7 @@ async def dashboard(request):
                     <div class="note">⚠️ Bot must be Admin in this group.</div>
                 </div>
 
+                <!-- TOGGLES -->
                 <div class="toggle-section">
                     <div class="section-title"><i class="bi bi-toggle-on"></i> Feature Toggles</div>
                     <div class="toggle-item">
@@ -118,6 +126,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
+                <!-- TIME -->
                 <div class="section-title"><i class="bi bi-hourglass-split"></i> Verification Time (Seconds)</div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -130,6 +139,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
+                <!-- SHORTNER 1 -->
                 <div class="section-title"><i class="bi bi-1-circle"></i> 1st Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #4e73df;">
                     <div class="row g-2">
@@ -144,6 +154,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
+                <!-- SHORTNER 2 -->
                 <div class="section-title"><i class="bi bi-2-circle"></i> 2nd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #f1c40f;">
                     <div class="row g-2">
@@ -158,6 +169,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
+                <!-- SHORTNER 3 -->
                 <div class="section-title"><i class="bi bi-3-circle"></i> 3rd Verify Shortner</div>
                 <div class="shortner-box" style="border-left-color: #e74c3c;">
                     <div class="row g-2">
@@ -172,6 +184,7 @@ async def dashboard(request):
                     </div>
                 </div>
 
+                <!-- MISC -->
                 <div class="section-title"><i class="bi bi-gear"></i> Caption & Template</div>
                 <div class="mb-3">
                     <label class="form-label">File Caption</label>
@@ -206,14 +219,17 @@ async def update_settings(request):
 
     current_settings = await get_settings(grp_id)
 
+    # Toggles
     for field in ['auto_filter', 'file_secure', 'imdb', 'spell_check', 'auto_delete', 'link', 'is_verify']:
         current_settings[field] = True if data.get(field) else False
 
+    # Time
     for field in ['verify_time', 'third_verify_time']:
         val = data.get(field)
         if val and str(val).isdigit():
             current_settings[field] = int(val)
 
+    # Text Fields (Including 3 Tutorials)
     text_fields = [
         'shortner', 'api', 
         'shortner_two', 'api_two', 
@@ -226,6 +242,7 @@ async def update_settings(request):
         if val is not None and val.strip() != '':
             current_settings[field] = val.strip()
 
+    # Save all
     for key, value in current_settings.items():
         await save_group_settings(grp_id, key, value)
 
@@ -250,9 +267,14 @@ async def update_settings(request):
         content_type='text/html'
     )
 
-# ---------- 🔥 FIXED: Watch/Download with safe error handling ----------
+
+# ============================================
+# 🔥 DYNAMIC ROUTES (Watch/Download) - YEH COMPLETE FIXED VERSION HAI
+# ============================================
+
 @routes.get("/watch/{msg_id}")
 async def watch_handler(request):
+    """Watch Online - Fixed: List me bhej rahe hain, Generator error nahi aayega"""
     global _bot
     if not _bot:
         return web.Response(text="Bot is not ready yet.", status=500)
@@ -266,12 +288,16 @@ async def watch_handler(request):
         return web.Response(text="BIN_CHANNEL not configured.", status=500)
     
     try:
-        # ---------- 🔥 FIX: List me pass karo (async generator nahi) ----------
+        # 🔥🔥🔥 सबसे जरूरी FIX: `message_ids` में [msg_id] (LIST) पास करो
         messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
+        
+        # अब `messages` एक LIST होगी, ASYNC GENERATOR नहीं
         if not messages or not messages[0]:
             return web.Response(text="Message not found.", status=404)
         
         msg = messages[0]
+        
+        # सही file_id निकालें
         file_id = None
         if msg.document:
             file_id = msg.document.file_id
@@ -289,10 +315,11 @@ async def watch_handler(request):
         if not file_id:
             return web.Response(text="File ID not found.", status=404)
         
-        # ---------- 🔥 FIX: get_file ko await karo (ye coroutine hai) ----------
+        # File Path लें
         file_obj = await _bot.get_file(file_id)
         download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}"
         
+        # सीधा Redirect (Super Fast)
         raise web.HTTPFound(download_url)
     
     except web.HTTPFound:
@@ -303,4 +330,5 @@ async def watch_handler(request):
 
 @routes.get("/{msg_id}")
 async def download_handler(request):
+    """Fast Download - Same as Watch"""
     return await watch_handler(request)
