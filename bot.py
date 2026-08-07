@@ -12,7 +12,7 @@ import datetime
 import pytz
 from aiohttp import web
 from plugins import web_server, check_expired_premium
-from plugins.route import set_bot  # <--- 🔥 यह नई Import लाइन है (404 Fix के लिए)
+from plugins.route import set_bot
 import asyncio
 import time
 
@@ -35,9 +35,9 @@ class Bot(Client):
         temp.BANNED_CHATS = b_chats
         await super().start()
         
-        # ---------- 🔥 यह नई लाइन है (404 Fix के लिए) ----------
-        set_bot(self)  # ये Route को Bot Instance बताता है ताकि वो Files भेज सके
-        # ----------------------------------------------------
+        # ---------- 🔥 FIX: Bot instance set karo (route ke liye) ----------
+        set_bot(self)
+        # -----------------------------------------------------------------
         
         await Media.ensure_indexes()
         me = await self.get_me()
@@ -67,44 +67,26 @@ class Bot(Client):
         await super().stop()
         print("Bot stopped.")
     
+    # ---------- 🔥 FIX: iter_messages ko safe banaya (extra error handling) ----------
     async def iter_messages(
         self,
         chat_id: Union[int, str],
         limit: int,
         offset: int = 0,
     ) -> Optional[AsyncGenerator["types.Message", None]]:
-        """Iterate through a chat sequentially.
-        This convenience method does the same as repeatedly calling :meth:`~pyrogram.Client.get_messages` in a loop, thus saving
-        you from the hassle of setting up boilerplate code. It is useful for getting the whole chat messages with a
-        single call.
-        Parameters:
-            chat_id (``int`` | ``str``):
-                Unique identifier (int) or username (str) of the target chat.
-                For your personal cloud (Saved Messages) you can simply use "me" or "self".
-                For a contact that exists in your Telegram address book you can use his phone number (str).
-                
-            limit (``int``):
-                Identifier of the last message to be returned.
-                
-            offset (``int``, *optional*):
-                Identifier of the first message to be returned.
-                Defaults to 0.
-        Returns:
-            ``Generator``: A generator yielding :obj:`~pyrogram.types.Message` objects.
-        Example:
-            .. code-block:: python
-                for message in app.iter_messages("pyrogram", 1, 15000):
-                    print(message.text)
-        """
         current = offset
         while True:
             new_diff = min(200, limit - current)
             if new_diff <= 0:
                 return
-            messages = await self.get_messages(chat_id, list(range(current, current+new_diff+1)))
-            for message in messages:
-                yield message
-                current += 1
+            try:
+                messages = await self.get_messages(chat_id, list(range(current, current+new_diff+1)))
+                for message in messages:
+                    yield message
+                    current += 1
+            except Exception as e:
+                print(f"iter_messages error: {e}")
+                return
 
 app = Bot()
 app.run()
