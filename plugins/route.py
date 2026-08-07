@@ -269,12 +269,12 @@ async def update_settings(request):
 
 
 # ============================================
-# 🔥 DYNAMIC ROUTES (Watch/Download) - YEH COMPLETE FIXED VERSION HAI
+# 🔥 DYNAMIC ROUTES (Watch/Download) - DEBUG VERSION
 # ============================================
 
 @routes.get("/watch/{msg_id}")
 async def watch_handler(request):
-    """Watch Online - Fixed: List me bhej rahe hain, Generator error nahi aayega"""
+    """Watch Online - Debug Version (Console Logs print karega)"""
     global _bot
     if not _bot:
         return web.Response(text="Bot is not ready yet.", status=500)
@@ -288,14 +288,28 @@ async def watch_handler(request):
         return web.Response(text="BIN_CHANNEL not configured.", status=500)
     
     try:
-        # 🔥🔥🔥 सबसे जरूरी FIX: `message_ids` में [msg_id] (LIST) पास करो
+        # 🔥 DEBUG: Console par Print karega
+        print(f"🔍 [DEBUG] Fetching message from BIN_CHANNEL: {BIN_CHANNEL}")
+        print(f"🔍 [DEBUG] Message ID: {msg_id}")
+
         messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
         
-        # अब `messages` एक LIST होगी, ASYNC GENERATOR नहीं
         if not messages or not messages[0]:
+            print(f"❌ [DEBUG] No message found for ID: {msg_id}")
             return web.Response(text="Message not found.", status=404)
         
         msg = messages[0]
+        
+        # 🔥 DEBUG: Message ki details print karo
+        print(f"✅ [DEBUG] Message fetched successfully.")
+        print(f"   📄 Message ID: {msg.id}")
+        print(f"   📄 Chat ID: {msg.chat.id}")
+        print(f"   📄 Has Document: {bool(msg.document)}")
+        print(f"   📄 Has Video: {bool(msg.video)}")
+        print(f"   📄 Has Audio: {bool(msg.audio)}")
+        print(f"   📄 Has Photo: {bool(msg.photo)}")
+        print(f"   📄 Has Animation: {bool(msg.animation)}")
+        print(f"   📄 Is Empty / Deleted: {msg.empty}")
         
         # सही file_id निकालें
         file_id = None
@@ -310,14 +324,21 @@ async def watch_handler(request):
         elif msg.animation:
             file_id = msg.animation.file_id
         else:
-            return web.Response(text="No media found in this message.", status=404)
+            # 🔥 DEBUG: Agar Media नहीं है, तो पूरा Message Object Print करो
+            print(f"❌ [DEBUG] No media found! Full message object: {msg}")
+            return web.Response(text=f"No media found. MsgID={msg_id}, ChatID={BIN_CHANNEL}. Check console logs.", status=404)
         
         if not file_id:
+            print(f"❌ [DEBUG] File ID is None despite having media attribute?")
             return web.Response(text="File ID not found.", status=404)
+        
+        print(f"✅ [DEBUG] File ID extracted: {file_id[:20]}...")
         
         # File Path लें
         file_obj = await _bot.get_file(file_id)
         download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}"
+        
+        print(f"✅ [DEBUG] Redirecting to: {download_url[:100]}...")
         
         # सीधा Redirect (Super Fast)
         raise web.HTTPFound(download_url)
@@ -325,7 +346,7 @@ async def watch_handler(request):
     except web.HTTPFound:
         raise
     except Exception as e:
-        print(f"Streaming error: {e}")
+        print(f"❌ [DEBUG] Streaming error: {e}")
         return web.Response(text=f"Error: {str(e)}", status=500)
 
 @routes.get("/{msg_id}")
