@@ -9,7 +9,6 @@ client = AsyncIOMotorClient(DATABASE_URI)
 db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
-
 # -------------------------------
 # 🔥 CLEAN QUERY
 # -------------------------------
@@ -25,7 +24,6 @@ def clean_query(text):
 
     return text.strip()
 
-
 # -------------------------------
 # 🔍 EXTRACT DETAILS
 # -------------------------------
@@ -40,67 +38,75 @@ def extract_parts(query):
         "episode": f"e{int(episode.group(1)):02d}" if episode else None
     }
 
+# -------------------------------
+# 🧠 SCORE SYSTEM (SMART SORT)
+# -------------------------------
+def calculate_score(item, words):
+    name = item.get("file_name", "").lower()
+    caption = item.get("caption", "").lower()
+
+    score = 0
+
+    for w in words:
+        if w in name:
+            score += 3   # file_name ज्यादा important
+        if w in caption:
+            score += 1
+
+    return score
 
 # -------------------------------
-# 🚀 ULTRA SEARCH (FIXED)
+# 🚀 ULTRA SEARCH (FINAL)
 # -------------------------------
 async def search_movies(search, limit=50):
     search = clean_query(search)
     parts = extract_parts(search)
 
     words = search.split()
-
     and_conditions = []
 
-    # ✅ STRICT WORD MATCH (mom != moms)
+    # ✅ STRICT WORD MATCH (WORD BOUNDARY)
     for word in words:
         and_conditions.append({
-            "file_name": {
-                "$regex": f"\\b{word}\\b",
-                "$options": "i"
-            }
+            "$or": [
+                {"file_name": {"$regex": f"\\b{word}\\b", "$options": "i"}},
+                {"caption": {"$regex": f"\\b{word}\\b", "$options": "i"}}
+            ]
         })
 
     # ✅ YEAR FILTER
     if parts["year"]:
         and_conditions.append({
-            "file_name": {
-                "$regex": parts["year"],
-                "$options": "i"
-            }
+            "file_name": {"$regex": parts["year"], "$options": "i"}
         })
 
     # ✅ SEASON FILTER
     if parts["season"]:
         and_conditions.append({
-            "file_name": {
-                "$regex": parts["season"],
-                "$options": "i"
-            }
+            "file_name": {"$regex": parts["season"], "$options": "i"}
         })
 
     # ✅ EPISODE FILTER
     if parts["episode"]:
         and_conditions.append({
-            "file_name": {
-                "$regex": parts["episode"],
-                "$options": "i"
-            }
+            "file_name": {"$regex": parts["episode"], "$options": "i"}
         })
 
-    final_query = {"$and": and_conditions}
+    # 🔥 FINAL QUERY
+    final_query = {"$and": and_conditions} if and_conditions else {}
 
     results = await collection.find(final_query).limit(limit).to_list(length=limit)
 
-    return results
+    # 🧠 SORT BY RELEVANCE
+    results = sorted(results, key=lambda x: calculate_score(x, words), reverse=True)
 
+    return results
 
 # -------------------------------
 # ⚡ GET ALL
 # -------------------------------
 async def get_all_movies(limit=2000):
     return await collection.find().limit(limit).to_list(length=limit)
-
 
 # -------------------------------
 # 🔥 CREATE INDEX (RUN ONCE)
