@@ -2,21 +2,24 @@ import re
 from motor.motor_asyncio import AsyncIOMotorClient
 from info import DATABASE_URI, DATABASE_NAME, COLLECTION_NAME
 
-# MongoDB Connection (AUTO from info.py)
+# -------------------------------
+# ✅ MongoDB Connection
+# -------------------------------
 client = AsyncIOMotorClient(DATABASE_URI)
 db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
+
 # -------------------------------
-# 🔥 CLEAN SEARCH TEXT
+# 🔥 CLEAN QUERY
 # -------------------------------
 def clean_query(text):
     text = text.lower()
 
-    # Remove extra words
+    # remove special chars
     text = re.sub(r'[^a-z0-9\s]', ' ', text)
 
-    # Normalize episode formats
+    # normalize season/episode
     text = re.sub(r'\bseason\s*(\d+)\b', r's\1', text)
     text = re.sub(r'\bepisode\s*(\d+)\b', r'e\1', text)
 
@@ -24,60 +27,68 @@ def clean_query(text):
 
 
 # -------------------------------
-# 🔥 EXTRACT INFO (RRR 2022 S01 E03)
+# 🔍 EXTRACT DETAILS
 # -------------------------------
 def extract_parts(query):
-    query = query.lower()
-
     year = re.search(r'(19|20)\d{2}', query)
     season = re.search(r's(\d{1,2})', query)
     episode = re.search(r'e(\d{1,2})', query)
 
     return {
         "year": year.group() if year else None,
-        "season": season.group() if season else None,
-        "episode": episode.group() if episode else None
+        "season": f"s{int(season.group(1)):02d}" if season else None,
+        "episode": f"e{int(episode.group(1)):02d}" if episode else None
     }
 
 
 # -------------------------------
-# 🚀 ULTRA SEARCH FUNCTION
+# 🚀 ULTRA SEARCH (FIXED)
 # -------------------------------
 async def search_movies(search, limit=50):
     search = clean_query(search)
     parts = extract_parts(search)
 
-    query_list = []
+    words = search.split()
 
-    # Base search (RRR type)
-    query_list.append({
-        "file_name": {"$regex": search, "$options": "i"}
-    })
+    and_conditions = []
 
-    query_list.append({
-        "caption": {"$regex": search, "$options": "i"}
-    })
+    # ✅ STRICT WORD MATCH (mom != moms)
+    for word in words:
+        and_conditions.append({
+            "file_name": {
+                "$regex": f"\\b{word}\\b",
+                "$options": "i"
+            }
+        })
 
-    # Year filter
+    # ✅ YEAR FILTER
     if parts["year"]:
-        query_list.append({
-            "file_name": {"$regex": parts["year"], "$options": "i"}
+        and_conditions.append({
+            "file_name": {
+                "$regex": parts["year"],
+                "$options": "i"
+            }
         })
 
-    # Season filter
+    # ✅ SEASON FILTER
     if parts["season"]:
-        query_list.append({
-            "file_name": {"$regex": parts["season"], "$options": "i"}
+        and_conditions.append({
+            "file_name": {
+                "$regex": parts["season"],
+                "$options": "i"
+            }
         })
 
-    # Episode filter
+    # ✅ EPISODE FILTER
     if parts["episode"]:
-        query_list.append({
-            "file_name": {"$regex": parts["episode"], "$options": "i"}
+        and_conditions.append({
+            "file_name": {
+                "$regex": parts["episode"],
+                "$options": "i"
+            }
         })
 
-    # FINAL QUERY
-    final_query = {"$or": query_list}
+    final_query = {"$and": and_conditions}
 
     results = await collection.find(final_query).limit(limit).to_list(length=limit)
 
@@ -85,15 +96,15 @@ async def search_movies(search, limit=50):
 
 
 # -------------------------------
-# ⚡ GET ALL (FAST LOAD)
+# ⚡ GET ALL
 # -------------------------------
 async def get_all_movies(limit=2000):
     return await collection.find().limit(limit).to_list(length=limit)
 
 
 # -------------------------------
-# 🔥 INDEX CREATION (IMPORTANT)
+# 🔥 CREATE INDEX (RUN ONCE)
 # -------------------------------
 async def create_indexes():
-    await collection.create_index("file_name")
-    await collection.create_index("caption")
+    await collection.create_index([("file_name", 1)])
+    await collection.create_index([("caption", 1)])
