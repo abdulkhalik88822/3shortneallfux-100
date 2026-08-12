@@ -40,16 +40,32 @@ class temp(object):
 # -------- 🚀 REDIS CACHE (info.py पर निर्भर नहीं) --------
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 _redis_client = None
+_redis_checked = False
+
 async def get_redis():
-    global _redis_client
-    if _redis_client is None:
-        try:
-            _redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-            await _redis_client.ping()
-            print("✅ Redis connected successfully!")
-        except Exception as e:
-            print(f"⚠️ Redis connection failed (caching disabled): {e}")
-            _redis_client = None
+    """Return Redis once available; if not configured, fail fast only once.
+
+    The old code retried localhost on every search, which made Koyeb searches feel slow
+    when no Redis service was attached.
+    """
+    global _redis_client, _redis_checked
+    if _redis_client is not None:
+        return _redis_client
+    if _redis_checked:
+        return None
+    _redis_checked = True
+    try:
+        _redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=0.5,
+            socket_timeout=0.8,
+        )
+        await _redis_client.ping()
+        print("✅ Redis connected successfully!")
+    except Exception as e:
+        print(f"⚠️ Redis unavailable; in-memory cache enabled: {e}")
+        _redis_client = None
     return _redis_client
 
 async def is_req_subscribed(bot, query):

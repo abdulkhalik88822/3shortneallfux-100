@@ -1,0 +1,49 @@
+FINAL ULTRA BUILD
+=================
+
+Main fixes in this package:
+
+1) Smart strict search
+   - "Moms 2016" requires BOTH Moms and 2016.
+   - "Mom" does not match "Moms".
+   - "rrr" returns RRR-related files.
+   - "rrr 2022" requires RRR + 2022.
+   - Supports S01 / Season 1 / Session 1.
+   - Supports E01 / EP01 / Episode 1.
+   - Supports combined S01E03 filenames.
+   - Supports language and quality terms such as Hindi / 1080p.
+   - Controlled typo fallback only runs when strict search finds nothing.
+
+2) Search speed
+   - 5-minute smart search cache.
+   - In-memory cache works even without Redis.
+   - Redis connection failure is checked once instead of slowing every query.
+   - Stable pagination on cached ranked results.
+
+3) Watch Online / Fast Download
+   - Removed the broken `await client.get_file(...)` flow that caused:
+       object async_generator can't be used in 'await' expression
+   - Uses `async for` with Pyrofork stream_media correctly.
+   - Streams without loading the whole file into RAM.
+   - HTTP Range support added for MP4 seeking/resume.
+   - Legacy download URLs still work.
+
+4) Deployment cleanup
+   - Fixed invalid app.py syntax.
+   - Removed old generic config/handlers main.py.
+   - Fixed Dockerfile (old one referenced missing start.sh).
+   - PORT is now an integer.
+   - runcmd.txt starts bot.py directly.
+
+IMPORTANT
+---------
+Set URL in Koyeb to your public app hostname, for example:
+  successful-example.koyeb.app
+or:
+  https://successful-example.koyeb.app
+
+Do not add /watch or /download to URL.
+
+For Watch Online, MP4/H.264 files are the most browser-compatible. MKV playback
+still depends on the user's browser/device codec support; Fast Download works for
+both MP4 and MKV.

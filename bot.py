@@ -1,6 +1,6 @@
 from pyrogram import Client, __version__, filters
 from pyrogram.raw.all import layer
-from database.ia_filterdb import Media
+from database.ia_filterdb import Media, ensure_indexes
 from database.users_chats_db import db
 from info import API_ID, API_HASH, ADMINS, BOT_TOKEN, LOG_CHANNEL, PORT, SUPPORT_GROUP
 from utils import temp
@@ -39,7 +39,7 @@ class Bot(Client):
         set_bot(self)
         # -----------------------------------------------------------------
         
-        await Media.ensure_indexes()
+        await ensure_indexes()
         me = await self.get_me()
         temp.ME = me.id
         temp.U_NAME = me.username
@@ -67,26 +67,32 @@ class Bot(Client):
         await super().stop()
         print("Bot stopped.")
     
-    # ---------- 🔥 FIX: iter_messages ko safe banaya (extra error handling) ----------
+    # Safe batched iterator used by /index. get_messages is awaited; no async
+    # generator is ever awaited here.
     async def iter_messages(
         self,
         chat_id: Union[int, str],
         limit: int,
         offset: int = 0,
-    ) -> Optional[AsyncGenerator["types.Message", None]]:
-        current = offset
-        while True:
-            new_diff = min(200, limit - current)
-            if new_diff <= 0:
-                return
+    ) -> AsyncGenerator["types.Message", None]:
+        current = max(1, int(offset or 1))
+        last_id = max(current, int(limit))
+        while current <= last_id:
+            end = min(current + 199, last_id)
+            ids = list(range(current, end + 1))
             try:
-                messages = await self.get_messages(chat_id, list(range(current, current+new_diff+1)))
+                messages = await self.get_messages(chat_id, ids)
+                if not isinstance(messages, list):
+                    messages = [messages]
                 for message in messages:
-                    yield message
-                    current += 1
+                    if message is not None:
+                        yield message
             except Exception as e:
-                print(f"iter_messages error: {e}")
-                return
+                print(f"iter_messages error at {current}-{end}: {e}")
+            current = end + 1
+
 
 app = Bot()
-app.run()
+
+if __name__ == "__main__":
+    app.run()

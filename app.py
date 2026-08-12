@@ -1,10 +1,7 @@
+"""Compatibility health module.
 
-from flask import Flask
-app Flask(_name_)
+The bot's actual aiohttp web server is started from bot.py.
+"""
 
-@app.route('/')
-def hello_world():
-return 'GreyMatters'
-
-if_name == "_main_":
-app.run()
+def health():
+    return {"status": "ok"}
