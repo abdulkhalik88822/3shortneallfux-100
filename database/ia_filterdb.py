@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from marshmallow.exceptions import ValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pyrogram.file_id import FileId
 from umongo import Document, Instance, fields
 
@@ -150,6 +150,92 @@ async def save_file(media):
         return "err"
     clear_search_cache()
     return "suc"
+
+
+def _media_to_bulk_document(media):
+    """Convert a Pyrogram media object to a raw MongoDB document."""
+    file_id, file_ref = unpack_new_file_id(media.file_id)
+
+    file_name = re.sub(r"(_|\-|\.|\+)", " ", str(getattr(media, "file_name", "") or ""))
+    file_name = re.sub(r"\s+", " ", file_name).strip()
+
+    mime_type = getattr(media, "mime_type", None)
+    file_size = getattr(media, "file_size", None)
+    caption_obj = getattr(media, "caption", None)
+
+    if not file_id or not file_name or file_size is None:
+        raise ValueError("Invalid media document")
+
+    caption = None
+    if caption_obj:
+        caption = getattr(caption_obj, "html", None)
+        if caption is None:
+            caption = str(caption_obj)
+
+    return {
+        "_id": file_id,
+        "file_ref": file_ref,
+        "file_name": file_name,
+        "file_size": int(file_size),
+        "mime_type": mime_type,
+        "caption": caption,
+        "file_type": (
+            mime_type.split("/", 1)[0]
+            if mime_type and "/" in mime_type
+            else None
+        ),
+    }
+
+
+async def save_files_bulk(medias):
+    """
+    Save many Telegram files in ONE MongoDB request.
+
+    Returns:
+        (inserted_count, duplicate_count, error_count)
+
+    ordered=False is important: one duplicate must not stop the rest of a batch.
+    """
+    docs = []
+    build_errors = 0
+
+    for media in medias:
+        try:
+            docs.append(_media_to_bulk_document(media))
+        except Exception:
+            build_errors += 1
+
+    if not docs:
+        return 0, 0, build_errors
+
+    inserted = 0
+    duplicates = 0
+    other_errors = 0
+
+    try:
+        result = await Media.collection.insert_many(docs, ordered=False)
+        inserted = len(result.inserted_ids)
+    except BulkWriteError as exc:
+        details = exc.details or {}
+        write_errors = details.get("writeErrors", []) or []
+
+        duplicates = sum(
+            1 for err in write_errors
+            if err.get("code") == 11000
+        )
+        other_errors = len(write_errors) - duplicates
+
+        # PyMongo reports nInserted for unordered bulk operations.
+        inserted = int(details.get("nInserted", max(0, len(docs) - len(write_errors))))
+    except Exception:
+        logger.exception("Bulk file insert failed")
+        return 0, 0, build_errors + len(docs)
+
+    if inserted:
+        # Clear once per batch, not once per file.
+        clear_search_cache()
+
+    return inserted, duplicates, build_errors + other_errors
 
 
 async def _load_cached_results(cache_key):
