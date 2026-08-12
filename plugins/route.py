@@ -1,7 +1,7 @@
 from aiohttp import web
 from database.users_chats_db import db
-from utils import get_settings, save_group_settings
-from info import BIN_CHANNEL, BOT_TOKEN
+from utils import get_settings, save_group_settings, get_hash
+from info import BIN_CHANNEL
 import json
 import html
 import asyncio
@@ -253,61 +253,160 @@ async def update_settings(request):
 
 
 # ============================================
-# 🔥 100% BULLETPROOF WATCH/DOWNLOAD (Har tarah ke error ko handle karega)
+# Fast Watch / Download streaming
 # ============================================
 
-@routes.get("/watch/{msg_id}")
-async def watch_handler(request):
+_STREAM_CHUNK = 1024 * 1024  # Pyrogram/Pyrofork stream_media chunk size
+
+
+def _message_media(msg):
+    for attr in ("video", "document", "audio", "animation", "voice", "video_note", "photo"):
+        media = getattr(msg, attr, None)
+        if media:
+            return media
+    return None
+
+
+def _safe_filename(media, msg_id):
+    name = getattr(media, "file_name", None) or f"telegram_file_{msg_id}"
+    name = str(name).replace("\r", "").replace("\n", "").replace('"', "'")
+    return name
+
+
+def _parse_range(value, size):
+    if not value or not value.startswith("bytes=") or not size:
+        return None
+    try:
+        raw = value[6:].split(",", 1)[0].strip()
+        start_s, end_s = raw.split("-", 1)
+        if start_s == "":
+            suffix = int(end_s)
+            if suffix <= 0:
+                return None
+            start = max(0, size - suffix)
+            end = size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else size - 1
+        if start < 0 or start >= size or end < start:
+            return "invalid"
+        return start, min(end, size - 1)
+    except (TypeError, ValueError):
+        return "invalid"
+
+
+async def _load_stream_message(msg_id):
+    messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[int(msg_id)])
+    if isinstance(messages, list):
+        return messages[0] if messages else None
+    return messages
+
+
+async def _stream_telegram_media(request, inline=False):
     global _bot
     if not _bot:
-        return web.Response(text="Bot is not ready yet.", status=500)
-    
-    try:
-        msg_id = int(request.match_info['msg_id'])
-    except ValueError:
-        return web.Response(text="Invalid message ID", status=400)
-    
+        return web.Response(text="Bot is not ready yet.", status=503)
     if not BIN_CHANNEL:
-        return web.Response(text="BIN_CHANNEL not configured.", status=500)
-    
-    try:
-        # 🔥🔥🔥 YEH MAGIC LINE HAI - LIST me bhejna hi sahi tarika hai
-        # Agar koi error aata hai toh hum try-except me catch karenge
-        messages = await _bot.get_messages(chat_id=int(BIN_CHANNEL), message_ids=[msg_id])
-        
-        if not messages or not messages[0]:
-            return web.Response(text="Message not found. Check console.", status=404)
-        
-        msg = messages[0]
-        
-        # Media check
-        file_id = None
-        if msg.document:
-            file_id = msg.document.file_id
-        elif msg.video:
-            file_id = msg.video.file_id
-        elif msg.audio:
-            file_id = msg.audio.file_id
-        elif msg.photo:
-            file_id = msg.photo.file_id
-        elif msg.animation:
-            file_id = msg.animation.file_id
-        
-        if not file_id:
-            # Agar media nahi mila toh yeh return karo
-            return web.Response(text=f"No media found in message {msg_id}.", status=404)
-        
-        file_obj = await _bot.get_file(file_id)
-        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}"
-        
-        raise web.HTTPFound(download_url)
-    
-    except web.HTTPFound:
-        raise
-    except Exception as e:
-        print(f"Watch/Download Error: {e}")
-        return web.Response(text=f"Error: {str(e)}", status=500)
+        return web.Response(text="BIN_CHANNEL is not configured.", status=500)
 
-@routes.get("/{msg_id}")
-async def download_handler(request):
-    return await watch_handler(request)
+    try:
+        msg_id = int(request.match_info["msg_id"])
+    except (TypeError, ValueError):
+        return web.Response(text="Invalid message ID.", status=400)
+
+    try:
+        msg = await _load_stream_message(msg_id)
+        if not msg or getattr(msg, "empty", False):
+            return web.Response(text="File message not found.", status=404)
+
+        expected_hash = request.query.get("hash")
+        if expected_hash and expected_hash != get_hash(msg):
+            return web.Response(text="Invalid or expired file link.", status=403)
+
+        media = _message_media(msg)
+        if not media:
+            return web.Response(text="No media found in this message.", status=404)
+
+        size = int(getattr(media, "file_size", 0) or 0)
+        mime = getattr(media, "mime_type", None) or ("video/mp4" if getattr(msg, "video", None) else "application/octet-stream")
+        filename = _safe_filename(media, msg_id)
+        disposition = "inline" if inline else "attachment"
+
+        headers = {
+            "Content-Type": mime,
+            "Accept-Ranges": "bytes",
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Cache-Control": "private, max-age=300",
+        }
+
+        byte_range = _parse_range(request.headers.get("Range"), size)
+        if byte_range == "invalid":
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
+
+        if byte_range:
+            start, end = byte_range
+            content_length = end - start + 1
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+            headers["Content-Length"] = str(content_length)
+            status = 206
+        else:
+            start, end = 0, (size - 1 if size else None)
+            if size:
+                headers["Content-Length"] = str(size)
+            status = 200
+
+        if request.method == "HEAD":
+            return web.Response(status=status, headers=headers)
+
+        response = web.StreamResponse(status=status, headers=headers)
+        await response.prepare(request)
+
+        if byte_range and size:
+            first_chunk = start // _STREAM_CHUNK
+            last_chunk = end // _STREAM_CHUNK
+            limit = last_chunk - first_chunk + 1
+            absolute_pos = first_chunk * _STREAM_CHUNK
+            remaining = end - start + 1
+
+            async for chunk in _bot.stream_media(msg, offset=first_chunk, limit=limit):
+                chunk_start = max(0, start - absolute_pos)
+                piece = chunk[chunk_start:]
+                if len(piece) > remaining:
+                    piece = piece[:remaining]
+                if piece:
+                    await response.write(piece)
+                    remaining -= len(piece)
+                absolute_pos += len(chunk)
+                if remaining <= 0:
+                    break
+        else:
+            # stream_media is an async generator. It must be iterated, never awaited.
+            async for chunk in _bot.stream_media(msg):
+                await response.write(chunk)
+
+        await response.write_eof()
+        return response
+    except (ConnectionResetError, asyncio.CancelledError):
+        # Browser closed/changed stream; this is normal during video seeking.
+        raise
+    except Exception as exc:
+        print(f"Watch/Download streaming error: {type(exc).__name__}: {exc}")
+        if request.transport is None or request.transport.is_closing():
+            raise
+        return web.Response(text="Streaming temporarily failed. Please try again.", status=500)
+
+
+@routes.get("/watch/{msg_id}", allow_head=True)
+async def watch_handler(request):
+    return await _stream_telegram_media(request, inline=True)
+
+
+@routes.get("/download/{msg_id}", allow_head=True)
+async def fast_download_handler(request):
+    return await _stream_telegram_media(request, inline=False)
+
+
+# Legacy path kept so old already-sent FAST DOWNLOAD buttons keep working.
+@routes.get("/{msg_id}", allow_head=True)
+async def legacy_download_handler(request):
+    return await _stream_telegram_media(request, inline=False)

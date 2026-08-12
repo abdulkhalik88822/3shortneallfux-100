@@ -365,23 +365,31 @@ async def cb_handler(client: Client, query: CallbackQuery):
         )
 
     elif query.data.startswith("stream"):
-        user_id = query.from_user.id
-        
         file_id = query.data.split('#', 1)[1]
-        AKS = await client.send_cached_media(
-            chat_id=BIN_CHANNEL,
-            file_id=file_id)
-        online = f"https://{URL}/watch/{AKS.id}?hash={get_hash(AKS)}"
-        download = f"https://{URL}/{AKS.id}?hash={get_hash(AKS)}"
-        btn= [[
-            InlineKeyboardButton("ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ", url=online),
-            InlineKeyboardButton("ꜰᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ", url=download)
-        ],[
-            InlineKeyboardButton('❌ ᴄʟᴏsᴇ ❌', callback_data='close_data')
-        ]]
-        await query.edit_message_reply_markup(
-            reply_markup=InlineKeyboardMarkup(btn)
-        )
+        try:
+            await query.answer("⚡ Preparing secure stream...", cache_time=0)
+            aks = await client.send_cached_media(chat_id=BIN_CHANNEL, file_id=file_id)
+            raw_base = str(URL or "").strip().rstrip("/")
+            if raw_base.startswith(("http://", "https://")):
+                base_url = raw_base
+            else:
+                base_url = f"https://{raw_base}"
+            file_hash = get_hash(aks)
+            online = f"{base_url}/watch/{aks.id}?hash={file_hash}"
+            download = f"{base_url}/download/{aks.id}?hash={file_hash}"
+            btn = [[
+                InlineKeyboardButton("▶️ WATCH ONLINE", url=online),
+                InlineKeyboardButton("⚡ FAST DOWNLOAD", url=download)
+            ], [
+                InlineKeyboardButton('❌ CLOSE ❌', callback_data='close_data')
+            ]]
+            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(btn))
+        except Exception as exc:
+            logging.exception("Stream button generation failed")
+            try:
+                await query.answer(f"Streaming link failed: {type(exc).__name__}", show_alert=True)
+            except Exception:
+                pass
 
     elif query.data == "buttons":
         await query.answer("ɴᴏ ᴍᴏʀᴇ ᴘᴀɢᴇs 😊", show_alert=True)
