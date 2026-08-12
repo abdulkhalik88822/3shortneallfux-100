@@ -20,6 +20,7 @@ from .smart_search import (
     build_fuzzy_candidate_filter,
     build_strict_filter,
     fuzzy_accept,
+    fuzzy_similarity,
     parse_search_query,
     relevance_score,
 )
@@ -183,6 +184,17 @@ async def _store_cached_results(cache_key, docs):
 
 
 async def _run_smart_search(spec):
+    """
+    Accuracy-first search.
+
+    Rules:
+    - Every requested title token MUST match as a standalone token.
+    - Year/season/episode/language/quality are strict AND filters.
+    - Structured queries never fall back to fuzzy title matching.
+      Example: "Mom 2016" will NOT become "Bad Moms 2016".
+    - Fuzzy fallback is allowed only for plain title-only searches and only
+      when confidence is very high.
+    """
     projection = {
         "_id": 1,
         "file_name": 1,
@@ -194,21 +206,77 @@ async def _run_smart_search(spec):
     }
 
     strict_filter = build_strict_filter(spec)
-    docs = await Media.collection.find(strict_filter, projection).limit(SEARCH_CANDIDATE_LIMIT).to_list(length=SEARCH_CANDIDATE_LIMIT)
+    docs = await Media.collection.find(
+        strict_filter, projection
+    ).limit(SEARCH_CANDIDATE_LIMIT).to_list(
+        length=SEARCH_CANDIDATE_LIMIT
+    )
+
     fuzzy_mode = False
 
-    # Controlled typo fallback. It runs only when strict search returns nothing,
-    # so accuracy is never sacrificed for normal queries.
-    if not docs and spec.get("title_tokens"):
+    # If the user supplied any structured metadata, accuracy wins over typo
+    # tolerance. Never loosen "Mom 2016" into "Moms 2016", and never return
+    # unrelated files simply because their year matches.
+    has_structured_filter = any((
+        spec.get("year"),
+        spec.get("season") is not None,
+        spec.get("episode") is not None,
+        spec.get("language"),
+        spec.get("quality"),
+    ))
+
+    # Optional typo fallback for title-only searches such as "spidr man".
+    # It is intentionally strict and only runs if exact search found nothing.
+    if not docs and spec.get("title_tokens") and not has_structured_filter:
         fuzzy_filter = build_fuzzy_candidate_filter(spec)
+
         if fuzzy_filter:
-            candidates = await Media.collection.find(fuzzy_filter, projection).limit(min(SEARCH_CANDIDATE_LIMIT, 300)).to_list(length=min(SEARCH_CANDIDATE_LIMIT, 300))
-            docs = [d for d in candidates if fuzzy_accept(d.get("file_name", ""), spec)]
+            candidate_limit = min(SEARCH_CANDIDATE_LIMIT, 250)
+            candidates = await Media.collection.find(
+                fuzzy_filter, projection
+            ).limit(candidate_limit).to_list(length=candidate_limit)
+
+            accepted = []
+            for doc in candidates:
+                filename = doc.get("file_name", "") or ""
+
+                # High confidence only. This avoids broad fuzzy garbage.
+                similarity = fuzzy_similarity(filename, spec)
+                if similarity < 0.86:
+                    continue
+
+                # Short query tokens (e.g. "mom") must still occur as exact
+                # standalone tokens, so "mom" can never silently become "moms".
+                normalized_filename = re.sub(
+                    r"[^a-z0-9\s]", " ",
+                    str(filename).lower()
+                )
+                normalized_filename = re.sub(
+                    r"\s+", " ", normalized_filename
+                ).strip()
+
+                short_tokens_ok = True
+                for token in spec.get("title_tokens", []):
+                    token = str(token).lower()
+                    if len(token) <= 3:
+                        pattern = rf"(?:^|\s){re.escape(token)}(?:$|\s)"
+                        if not re.search(pattern, normalized_filename):
+                            short_tokens_ok = False
+                            break
+
+                if short_tokens_ok and fuzzy_accept(filename, spec):
+                    accepted.append(doc)
+
+            docs = accepted
             fuzzy_mode = bool(docs)
 
     docs.sort(
         key=lambda d: (
-            relevance_score(d.get("file_name", ""), spec, fuzzy=fuzzy_mode),
+            relevance_score(
+                d.get("file_name", ""),
+                spec,
+                fuzzy=fuzzy_mode
+            ),
             -(len(d.get("file_name", "") or "")),
         ),
         reverse=True,
@@ -244,7 +312,7 @@ async def get_search_results(query, max_results=MAX_BTN, offset=0, lang=None):
 
     cache_material = json.dumps(spec, sort_keys=True, ensure_ascii=True)
     digest = hashlib.sha1(cache_material.encode("utf-8")).hexdigest()
-    cache_key = f"smart-search:v4:{digest}"
+    cache_key = f"smart-search:v7-strict:{digest}"
 
     cached_docs = await _load_cached_results(cache_key)
     if cached_docs is None:
