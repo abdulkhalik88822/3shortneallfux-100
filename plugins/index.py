@@ -14,17 +14,28 @@ from utils import get_readable_time, temp
 # Only one /index job at a time.
 lock = asyncio.Lock()
 
-# Tune from Koyeb env if ever needed; no info.py change required.
-INDEX_DB_BATCH = max(100, min(2000, int(os.environ.get("INDEX_DB_BATCH", "1000"))))
-INDEX_PROGRESS_SECONDS = max(5, int(os.environ.get("INDEX_PROGRESS_SECONDS", "12")))
+# MongoDB bulk size. 1000 is a good default for Koyeb + Atlas.
+INDEX_DB_BATCH = max(
+    100,
+    min(2000, int(os.environ.get("INDEX_DB_BATCH", "1000")))
+)
+
+# Do not spam Telegram with progress edits.
+INDEX_PROGRESS_SECONDS = max(
+    5,
+    int(os.environ.get("INDEX_PROGRESS_SECONDS", "12"))
+)
 
 
 async def _safe_progress_edit(msg, text, reply_markup=None):
-    """Progress UI must never become the indexing bottleneck."""
     try:
-        await msg.edit_text(text=text, reply_markup=reply_markup)
-    except FloodWait:
-        # Do not stop the index just because the status message hit a flood limit.
+        await msg.edit_text(
+            text=text,
+            reply_markup=reply_markup
+        )
+    except FloodWait as e:
+        # Progress UI is not important enough to pause the index job.
+        # The next timed update will refresh it.
         pass
     except Exception:
         pass
@@ -39,20 +50,30 @@ async def _flush_batch(buffer):
     return await save_files_bulk(batch)
 
 
-def _progress_text(current, total_files, duplicate, deleted, no_media, unsupported, errors, pending, start_time):
+def _progress_text(
+    scanned,
+    total_files,
+    duplicate,
+    no_media,
+    unsupported,
+    errors,
+    pending,
+    last_message_id,
+    start_time,
+):
     elapsed = max(0.001, time.time() - start_time)
-    scanned = max(0, current)
     speed = scanned / elapsed
+
     return (
-        f"⚡ <b>SUPER FAST INDEXING</b>\n\n"
-        f"Messages scanned: <code>{scanned}</code>\n"
+        "🚀 <b>HISTORY SUPER-FAST INDEXING</b>\n\n"
+        f"History messages scanned: <code>{scanned}</code>\n"
         f"Files saved: <code>{total_files}</code>\n"
         f"Duplicates skipped: <code>{duplicate}</code>\n"
-        f"Deleted skipped: <code>{deleted}</code>\n"
         f"Non-media skipped: <code>{no_media}</code>\n"
-        f"Unsupported skipped: <code>{unsupported}</code>\n"
-        f"Pending batch: <code>{pending}</code>\n"
-        f"Errors: <code>{errors}</code>\n\n"
+        f"Unsupported media: <code>{unsupported}</code>\n"
+        f"Pending DB batch: <code>{pending}</code>\n"
+        f"Errors: <code>{errors}</code>\n"
+        f"Last message ID: <code>{last_message_id}</code>\n\n"
         f"Speed: <code>{speed:.1f} msg/sec</code>\n"
         f"Running: <code>{get_readable_time(elapsed)}</code>"
     )
@@ -64,7 +85,9 @@ async def index_files(bot, query):
 
     if ident == "yes":
         msg = query.message
-        await msg.edit("<b>⚡ Super-fast indexing started...</b>")
+        await msg.edit(
+            "<b>🚀 History super-fast indexing started...</b>"
+        )
 
         try:
             chat = int(chat)
@@ -81,7 +104,9 @@ async def index_files(bot, query):
 
     elif ident == "cancel":
         temp.CANCEL = True
-        await query.message.edit("Trying to cancel Indexing...")
+        await query.message.edit(
+            "Trying to cancel indexing safely..."
+        )
 
 
 @Client.on_message(
@@ -92,63 +117,86 @@ async def index_files(bot, query):
 )
 async def send_for_index(bot, message):
     if lock.locked():
-        return await message.reply("Wait until previous process complete.")
+        return await message.reply(
+            "Wait until previous indexing process completes."
+        )
 
-    i = await message.reply("Forward last message or send last message link.")
+    ask = await message.reply(
+        "Forward the channel's last message or send its message link."
+    )
+
     msg = await bot.listen(
         chat_id=message.chat.id,
         user_id=message.from_user.id,
     )
-    await i.delete()
+    await ask.delete()
 
     if msg.text and msg.text.startswith("https://t.me"):
         try:
-            msg_link = msg.text.split("/")
+            msg_link = msg.text.rstrip("/").split("/")
             last_msg_id = int(msg_link[-1])
             chat_id = msg_link[-2]
+
             if chat_id.isnumeric():
                 chat_id = int("-100" + chat_id)
         except Exception:
-            return await message.reply("Invalid message link!")
+            return await message.reply(
+                "Invalid message link!"
+            )
 
     elif (
         msg.forward_from_chat
-        and msg.forward_from_chat.type == enums.ChatType.CHANNEL
+        and msg.forward_from_chat.type
+        == enums.ChatType.CHANNEL
     ):
         last_msg_id = msg.forward_from_message_id
-        chat_id = msg.forward_from_chat.username or msg.forward_from_chat.id
+        chat_id = (
+            msg.forward_from_chat.username
+            or msg.forward_from_chat.id
+        )
 
     else:
         return await message.reply(
-            "This is not forwarded message or link."
+            "This is not a forwarded channel message or valid link."
         )
 
     try:
         chat = await bot.get_chat(chat_id)
     except Exception as exc:
-        return await message.reply(f"Errors - {exc}")
+        return await message.reply(
+            f"Channel access error - {exc}"
+        )
 
     if chat.type != enums.ChatType.CHANNEL:
-        return await message.reply("I can index only channels.")
+        return await message.reply(
+            "I can index only channels."
+        )
 
-    s = await message.reply("Send skip message number.")
-    msg = await bot.listen(
+    ask_skip = await message.reply(
+        "Send skip count.\n\n"
+        "For a fresh full index send <code>0</code>."
+    )
+
+    skip_msg = await bot.listen(
         chat_id=message.chat.id,
         user_id=message.from_user.id,
     )
-    await s.delete()
+    await ask_skip.delete()
 
     try:
-        skip = int(msg.text)
+        skip = max(0, int(skip_msg.text))
     except Exception:
-        return await message.reply("Number is invalid.")
+        return await message.reply(
+            "Skip count is invalid."
+        )
 
     buttons = [
         [
             InlineKeyboardButton(
-                "YES",
+                "🚀 START FAST INDEX",
                 callback_data=(
-                    f"index#yes#{chat_id}#{last_msg_id}#{skip}"
+                    f"index#yes#{chat_id}#"
+                    f"{last_msg_id}#{skip}"
                 ),
             )
         ],
@@ -162,9 +210,13 @@ async def send_for_index(bot, message):
 
     await message.reply(
         (
-            f"Do you want to index {chat.title} channel?\n"
-            f"Total Messages: <code>{last_msg_id}</code>\n\n"
-            f"⚡ DB Batch: <code>{INDEX_DB_BATCH}</code> files"
+            f"<b>Channel:</b> {chat.title}\n"
+            f"<b>Last message ID:</b> "
+            f"<code>{last_msg_id}</code>\n"
+            f"<b>Skip:</b> <code>{skip}</code>\n\n"
+            "🚀 <b>FAST HISTORY MODE</b>\n"
+            "Deleted message IDs are not requested one-by-one.\n"
+            f"MongoDB batch: <code>{INDEX_DB_BATCH}</code>"
         ),
         reply_markup=InlineKeyboardMarkup(buttons),
     )
@@ -174,14 +226,18 @@ async def send_for_index(bot, message):
 async def channel_info(bot, message):
     if message.from_user.id not in ADMINS:
         await message.reply(
-            "ᴏɴʟʏ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ... 😑"
+            "ᴏɴʟʏ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ "
+            "ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ... 😑"
         )
         return
 
     if not CHANNELS:
-        return await message.reply("Not set CHANNELS")
+        return await message.reply(
+            "Not set CHANNELS"
+        )
 
     text = "**Indexed Channels:**\n\n"
+
     for channel_id in CHANNELS:
         chat = await bot.get_chat(channel_id)
         text += f"{chat.title}\n"
@@ -190,31 +246,58 @@ async def channel_info(bot, message):
     await message.reply(text)
 
 
-async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
+async def index_files_to_db(
+    lst_msg_id,
+    chat,
+    msg,
+    bot,
+    skip,
+):
+    """
+    Super-fast indexer.
+
+    IMPORTANT:
+    We intentionally use get_chat_history() instead of fetching every
+    possible numeric message ID with get_messages().
+
+    get_chat_history() returns actual existing history messages, so huge
+    deleted-ID gaps are skipped by Telegram itself. The media file_id is
+    still generated by the SAME bot account, so existing search/download/
+    stream code remains compatible.
+    """
     start_time = time.time()
     last_progress = 0.0
 
     total_files = 0
     duplicate = 0
     errors = 0
-    deleted = 0
     no_media = 0
     unsupported = 0
-    current = int(skip)
+    scanned = 0
+    last_message_id = lst_msg_id
 
     buffer = []
 
     async with lock:
         try:
-            async for message in bot.iter_messages(
-                chat,
-                lst_msg_id,
-                skip,
+            # +1 makes the supplied last message eligible as the first
+            # history item instead of starting below it.
+            history_offset_id = int(lst_msg_id) + 1
+
+            async for message in bot.get_chat_history(
+                chat_id=chat,
+                limit=0,
+                offset=skip,
+                offset_id=history_offset_id,
             ):
-                current += 1
+                scanned += 1
+                last_message_id = getattr(
+                    message,
+                    "id",
+                    last_message_id,
+                )
 
                 if temp.CANCEL:
-                    # Save already-scanned files before stopping.
                     ins, dup, err = await _flush_batch(buffer)
                     total_files += ins
                     duplicate += dup
@@ -226,17 +309,17 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                     await msg.edit(
                         (
                             "✅ <b>Indexing cancelled safely.</b>\n\n"
+                            f"History scanned: <code>{scanned}</code>\n"
                             f"Saved: <code>{total_files}</code>\n"
                             f"Duplicates: <code>{duplicate}</code>\n"
                             f"Errors: <code>{errors}</code>\n"
-                            f"Completed in: <code>{get_readable_time(elapsed)}</code>"
+                            f"Last message ID: "
+                            f"<code>{last_message_id}</code>\n"
+                            f"Completed in: "
+                            f"<code>{get_readable_time(elapsed)}</code>"
                         )
                     )
                     return
-
-                if message.empty:
-                    deleted += 1
-                    continue
 
                 if not message.media:
                     no_media += 1
@@ -269,53 +352,85 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                 media.caption = message.caption
                 buffer.append(media)
 
-                # THE BIG SPEEDUP:
-                # one MongoDB request for up to 1000 files instead of
-                # one awaited database commit for every single file.
+                # One MongoDB request for up to 1000 files.
                 if len(buffer) >= INDEX_DB_BATCH:
                     ins, dup, err = await _flush_batch(buffer)
                     total_files += ins
                     duplicate += dup
                     errors += err
 
-                # Telegram status edits are intentionally time-based.
-                # The old code edited every 30 messages, which is extremely
-                # expensive for a 900k-message channel.
                 now = time.time()
-                if now - last_progress >= INDEX_PROGRESS_SECONDS:
+
+                if (
+                    now - last_progress
+                    >= INDEX_PROGRESS_SECONDS
+                ):
                     last_progress = now
+
                     btn = [[
                         InlineKeyboardButton(
                             "CANCEL",
                             callback_data=(
-                                f"index#cancel#{chat}#{lst_msg_id}#{skip}"
+                                f"index#cancel#{chat}#"
+                                f"{lst_msg_id}#{skip}"
                             ),
                         )
                     ]]
+
                     await _safe_progress_edit(
                         msg,
                         _progress_text(
-                            current,
+                            scanned,
                             total_files,
                             duplicate,
-                            deleted,
                             no_media,
                             unsupported,
                             errors,
                             len(buffer),
+                            last_message_id,
                             start_time,
                         ),
                         InlineKeyboardMarkup(btn),
                     )
 
-            # Flush last partial batch.
+            # Save the last incomplete batch.
             ins, dup, err = await _flush_batch(buffer)
             total_files += ins
             duplicate += dup
             errors += err
 
+        except FloodWait as exc:
+            # Normally Pyrofork waits automatically. If a FloodWait reaches
+            # this level, save everything already collected before exiting.
+            try:
+                ins, dup, err = await _flush_batch(buffer)
+                total_files += ins
+                duplicate += dup
+                errors += err
+            except Exception:
+                pass
+
+            wait_for = getattr(
+                exc,
+                "value",
+                getattr(exc, "x", 0),
+            )
+
+            await msg.edit(
+                (
+                    "⚠️ <b>Telegram FloodWait stopped this run.</b>\n\n"
+                    f"Telegram requested wait: "
+                    f"<code>{wait_for}s</code>\n"
+                    f"History scanned: <code>{scanned}</code>\n"
+                    f"Files saved: <code>{total_files}</code>\n"
+                    f"Last message ID: "
+                    f"<code>{last_message_id}</code>\n\n"
+                    "Run /index again after the wait."
+                )
+            )
+            return
+
         except Exception as exc:
-            # Try to preserve the current buffer even if the scanner fails.
             try:
                 ins, dup, err = await _flush_batch(buffer)
                 total_files += ins
@@ -330,18 +445,19 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
             return
 
     elapsed = time.time() - start_time
-    speed = max(0, current - skip) / max(elapsed, 0.001)
+    speed = scanned / max(elapsed, 0.001)
 
     await msg.edit(
         (
-            f"✅ <b>SUPER FAST INDEX COMPLETE</b>\n\n"
-            f"Saved: <code>{total_files}</code>\n"
+            "✅ <b>HISTORY SUPER-FAST INDEX COMPLETE</b>\n\n"
+            f"History messages scanned: <code>{scanned}</code>\n"
+            f"Files saved: <code>{total_files}</code>\n"
             f"Duplicates: <code>{duplicate}</code>\n"
-            f"Deleted skipped: <code>{deleted}</code>\n"
             f"Non-media skipped: <code>{no_media}</code>\n"
-            f"Unsupported skipped: <code>{unsupported}</code>\n"
+            f"Unsupported media: <code>{unsupported}</code>\n"
             f"Errors: <code>{errors}</code>\n\n"
             f"Average speed: <code>{speed:.1f} msg/sec</code>\n"
-            f"Completed in: <code>{get_readable_time(elapsed)}</code>"
+            f"Completed in: "
+            f"<code>{get_readable_time(elapsed)}</code>"
         )
     )
