@@ -10,7 +10,6 @@ from types import SimpleNamespace
 
 from marshmallow.exceptions import ValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pyrogram.file_id import FileId
 from umongo import Document, Instance, fields
@@ -48,11 +47,6 @@ class Media(Document):
     mime_type = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
     file_type = fields.StrField(allow_none=True)
-    # Files indexed by the auxiliary user session are stored as metadata only.
-    # The bot resolves these two fields to a bot-side file_id only when a user
-    # actually requests the file.
-    source_chat_id = fields.IntField(allow_none=True)
-    source_message_id = fields.IntField(allow_none=True)
 
     class Meta:
         indexes = ("$file_name",)
@@ -70,8 +64,6 @@ def _serialize_doc(doc):
             "file_ref": doc.get("file_ref"),
             "mime_type": doc.get("mime_type"),
             "file_type": doc.get("file_type"),
-            "source_chat_id": doc.get("source_chat_id"),
-            "source_message_id": doc.get("source_message_id"),
         }
     return {
         "file_id": str(getattr(doc, "file_id", "")),
@@ -81,8 +73,6 @@ def _serialize_doc(doc):
         "file_ref": getattr(doc, "file_ref", None),
         "mime_type": getattr(doc, "mime_type", None),
         "file_type": getattr(doc, "file_type", None),
-        "source_chat_id": getattr(doc, "source_chat_id", None),
-        "source_message_id": getattr(doc, "source_message_id", None),
     }
 
 
@@ -126,8 +116,7 @@ async def ensure_indexes():
         await Media.collection.create_index([("file_name", 1)], background=True)
         await Media.collection.create_index([("file_size", 1)], background=True)
         await Media.collection.create_index([("file_type", 1)], background=True)
-        await Media.collection.create_index([("source_chat_id", 1), ("source_message_id", 1)], background=True, sparse=True)
-        await mydb["index_jobs"].create_index([("status", 1), ("updated_at", -1)], background=True)
+        await INDEX_JOBS.create_index([("status", 1), ("updated_at", -1)], background=True)
         print("✅ Database indexes created/verified successfully!")
     except Exception as e:
         print(f"Index creation warning: {e}")
@@ -168,7 +157,11 @@ def _media_to_bulk_document(media):
     """Convert a Pyrogram media object to a raw MongoDB document."""
     file_id, file_ref = unpack_new_file_id(media.file_id)
 
-    file_name = re.sub(r"(_|\-|\.|\+)", " ", str(getattr(media, "file_name", "") or ""))
+    file_name = re.sub(
+        r"(_|\-|\.|\+)",
+        " ",
+        str(getattr(media, "file_name", "") or "")
+    )
     file_name = re.sub(r"\s+", " ", file_name).strip()
 
     mime_type = getattr(media, "mime_type", None)
@@ -201,12 +194,10 @@ def _media_to_bulk_document(media):
 
 async def save_files_bulk(medias):
     """
-    Save many Telegram files in ONE MongoDB request.
+    Save many Telegram files with one unordered MongoDB insert.
 
     Returns:
         (inserted_count, duplicate_count, error_count)
-
-    ordered=False is important: one duplicate must not stop the rest of a batch.
     """
     docs = []
     build_errors = 0
@@ -220,172 +211,33 @@ async def save_files_bulk(medias):
     if not docs:
         return 0, 0, build_errors
 
-    inserted = 0
-    duplicates = 0
-    other_errors = 0
-
     try:
         result = await Media.collection.insert_many(docs, ordered=False)
         inserted = len(result.inserted_ids)
+        duplicates = 0
+        other_errors = 0
     except BulkWriteError as exc:
         details = exc.details or {}
         write_errors = details.get("writeErrors", []) or []
-
         duplicates = sum(
             1 for err in write_errors
             if err.get("code") == 11000
         )
         other_errors = len(write_errors) - duplicates
-
-        # PyMongo reports nInserted for unordered bulk operations.
-        inserted = int(details.get("nInserted", max(0, len(docs) - len(write_errors))))
+        inserted = int(
+            details.get(
+                "nInserted",
+                max(0, len(docs) - len(write_errors))
+            )
+        )
     except Exception:
         logger.exception("Bulk file insert failed")
         return 0, 0, build_errors + len(docs)
 
     if inserted:
-        # Clear once per batch, not once per file.
         clear_search_cache()
 
     return inserted, duplicates, build_errors + other_errors
-
-
-
-def _normalize_source_file_name(value):
-    name = re.sub(r"(_|\-|\.|\+)", " ", str(value or ""))
-    return re.sub(r"\s+", " ", name).strip()
-
-
-def _source_key(chat_id, message_id):
-    # Telegram deep-link start parameters allow letters, digits, _ and -.
-    # Keep the key short enough for callbacks/deep links.
-    return f"src{abs(int(chat_id))}_{int(message_id)}"
-
-
-async def save_source_files_bulk(items):
-    """Bulk-upsert metadata discovered by a USER session.
-
-    No user-session file_id is saved because Telegram file IDs are account
-    scoped. source_chat_id/source_message_id are resolved by the BOT only when
-    the user actually opens/downloads a result.
-
-    items are dicts with: chat_id, message_id, file_name, file_size,
-    mime_type, caption.
-    """
-    ops = []
-    build_errors = 0
-
-    for item in items:
-        try:
-            chat_id = int(item["chat_id"])
-            message_id = int(item["message_id"])
-            file_name = _normalize_source_file_name(item.get("file_name"))
-            file_size = int(item.get("file_size") or 0)
-            mime_type = item.get("mime_type")
-            if not file_name or file_size <= 0:
-                raise ValueError("invalid source media")
-
-            key = _source_key(chat_id, message_id)
-            doc = {
-                "_id": key,
-                "file_ref": None,
-                "file_name": file_name,
-                "file_size": file_size,
-                "mime_type": mime_type,
-                "caption": item.get("caption"),
-                "file_type": (
-                    mime_type.split("/", 1)[0]
-                    if mime_type and "/" in mime_type
-                    else None
-                ),
-                "source_chat_id": chat_id,
-                "source_message_id": message_id,
-            }
-            ops.append(UpdateOne({"_id": key}, {"$set": doc}, upsert=True))
-        except Exception:
-            build_errors += 1
-
-    if not ops:
-        return 0, 0, build_errors
-
-    try:
-        result = await Media.collection.bulk_write(ops, ordered=False)
-        inserted = int(result.upserted_count or 0)
-        duplicates = int(result.matched_count or 0)
-        errors = build_errors
-    except Exception:
-        logger.exception("Source metadata bulk write failed")
-        return 0, 0, build_errors + len(ops)
-
-    if inserted:
-        clear_search_cache()
-    return inserted, duplicates, errors
-
-
-INDEX_JOBS = mydb["index_jobs"]
-
-
-async def save_index_job(chat_id, **values):
-    values["chat_id"] = int(chat_id)
-    values["updated_at"] = int(time.time())
-    await INDEX_JOBS.update_one(
-        {"_id": f"fastindex:{int(chat_id)}"},
-        {"$set": values},
-        upsert=True,
-    )
-
-
-async def get_index_job(chat_id):
-    return await INDEX_JOBS.find_one({"_id": f"fastindex:{int(chat_id)}"})
-
-
-async def get_pending_index_jobs():
-    return await INDEX_JOBS.find(
-        {"status": {"$in": ["running", "starting", "interrupted"]}}
-    ).to_list(length=20)
-
-
-async def resolve_bot_file_id(bot, file_key):
-    """Return a bot-usable Telegram file_id for legacy and source-index files."""
-    key = str(file_key or "")
-    if not key:
-        raise ValueError("Empty file key")
-
-    doc = await Media.collection.find_one(
-        {"_id": key},
-        {"source_chat_id": 1, "source_message_id": 1},
-    )
-
-    if not doc or not doc.get("source_chat_id") or not doc.get("source_message_id"):
-        # Legacy DB rows already contain a bot-usable compact file_id as _id.
-        return key
-
-    msg = await bot.get_messages(
-        int(doc["source_chat_id"]),
-        int(doc["source_message_id"]),
-    )
-    if not msg or getattr(msg, "empty", False):
-        raise FileNotFoundError("Source Telegram message is unavailable")
-
-    media = None
-    for attr in ("video", "document", "audio", "animation"):
-        media = getattr(msg, attr, None)
-        if media:
-            break
-    if not media:
-        raise FileNotFoundError("Source Telegram media is unavailable")
-    return media.file_id
-
-
-async def send_cached_media_resolved(bot, chat_id, file_key, **kwargs):
-    """send_cached_media() that also supports source-index synthetic keys."""
-    resolved = await resolve_bot_file_id(bot, file_key)
-    kwargs.pop("file_id", None)
-    return await bot.send_cached_media(
-        chat_id=chat_id,
-        file_id=resolved,
-        **kwargs,
-    )
 
 
 async def _load_cached_results(cache_key):
@@ -439,8 +291,6 @@ async def _run_smart_search(spec):
         "file_ref": 1,
         "mime_type": 1,
         "file_type": 1,
-        "source_chat_id": 1,
-        "source_message_id": 1,
     }
 
     strict_filter = build_strict_filter(spec)
@@ -623,3 +473,43 @@ def unpack_new_file_id(new_file_id):
     )
     file_ref = encode_file_ref(decoded.file_reference)
     return file_id, file_ref
+
+
+# -------------------------------
+# BOT-ONLY INDEX CHECKPOINTS
+# -------------------------------
+INDEX_JOBS = mydb["index_jobs"]
+
+
+async def save_index_job(chat_id, **values):
+    """Persist index progress so a Koyeb restart can resume safely."""
+    payload = dict(values)
+    payload["chat_id"] = int(chat_id)
+    payload["updated_at"] = time.time()
+
+    await INDEX_JOBS.update_one(
+        {"_id": str(int(chat_id))},
+        {"$set": payload},
+        upsert=True,
+    )
+
+
+async def get_index_job(chat_id):
+    return await INDEX_JOBS.find_one({"_id": str(int(chat_id))})
+
+
+async def get_pending_index_jobs():
+    return await INDEX_JOBS.find({
+        "status": {
+            "$in": [
+                "starting",
+                "running",
+                "waiting",
+                "retrying",
+            ]
+        }
+    }).to_list(length=20)
+
+
+async def clear_index_job(chat_id):
+    await INDEX_JOBS.delete_one({"_id": str(int(chat_id))})
