@@ -30,15 +30,25 @@ class Bot(Client):
         
     async def start(self):
         st = time.time()
-        b_users, b_chats = await db.get_banned()
-        temp.BANNED_USERS = b_users
-        temp.BANNED_CHATS = b_chats
         await super().start()
-        
-        # ---------- 🔥 FIX: Bot instance set karo (route ke liye) ----------
+
+        # Make HTTP health endpoint available as early as possible so Koyeb
+        # health checks do not fail while DB/index startup work continues.
         set_bot(self)
-        # -----------------------------------------------------------------
-        
+        self._web_runner = web.AppRunner(await web_server())
+        await self._web_runner.setup()
+        await web.TCPSite(self._web_runner, "0.0.0.0", PORT).start()
+
+        # Non-critical DB state should not delay the web health endpoint.
+        try:
+            b_users, b_chats = await db.get_banned()
+            temp.BANNED_USERS = b_users
+            temp.BANNED_CHATS = b_chats
+        except Exception as exc:
+            print(f"Banned-list startup warning: {exc}")
+            temp.BANNED_USERS = []
+            temp.BANNED_CHATS = []
+
         await ensure_indexes()
         me = await self.get_me()
         temp.ME = me.id
@@ -46,26 +56,50 @@ class Bot(Client):
         temp.B_NAME = me.first_name
         temp.B_LINK = me.mention
         self.username = '@' + me.username
+
         self.loop.create_task(check_expired_premium(self))
+        # Long historical indexing is background + Mongo-checkpointed. If Koyeb
+        # restarts the instance, pending jobs resume automatically.
+        try:
+            from plugins.index import resume_pending_index_jobs
+            self.loop.create_task(resume_pending_index_jobs(self))
+        except Exception as exc:
+            print(f"Index auto-resume setup warning: {exc}")
+
         print(f"{me.first_name} is started now ❤️")
         tz = pytz.timezone('Asia/Kolkata')
         today = date.today()
         now = datetime.datetime.now(tz)
-        timee = now.strftime("%H:%M:%S %p") 
-        app = web.AppRunner(await web_server())
-        await app.setup()
-        bind_address = "0.0.0.0"
-        await web.TCPSite(app, bind_address, PORT).start()
-        await self.send_message(chat_id=LOG_CHANNEL, text=f"<b>{me.mention} ʀᴇsᴛᴀʀᴛᴇᴅ 🤖\n\n📆 ᴅᴀᴛᴇ - <code>{today}</code>\n🕙 ᴛɪᴍᴇ - <code>{timee}</code>\n🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code></b>")
-        await self.send_message(chat_id=SUPPORT_GROUP, text=f"<b>{me.mention} ʀᴇsᴛᴀʀᴛᴇᴅ 🤖</b>")
+        timee = now.strftime("%H:%M:%S %p")
+
+        # Notification failures must never kill the bot process.
+        async def safe_send(chat_id, text):
+            try:
+                await self.send_message(chat_id=chat_id, text=text)
+            except Exception as exc:
+                print(f"Startup notification warning for {chat_id}: {exc}")
+
+        await safe_send(LOG_CHANNEL, f"<b>{me.mention} ʀᴇsᴛᴀʀᴛᴇᴅ 🤖\n\n📆 ᴅᴀᴛᴇ - <code>{today}</code>\n🕙 ᴛɪᴍᴇ - <code>{timee}</code>\n🌍 ᴛɪᴍᴇ ᴢᴏɴᴇ - <code>Asia/Kolkata</code></b>")
+        await safe_send(SUPPORT_GROUP, f"<b>{me.mention} ʀᴇsᴛᴀʀᴛᴇᴅ 🤖</b>")
         tt = time.time() - st
         seconds = int(datetime.timedelta(seconds=tt).seconds)
         for admin in ADMINS:
-            await self.send_message(chat_id=admin, text=f"<b>✅ ʙᴏᴛ ʀᴇsᴛᴀʀᴛᴇᴅ\n🕥 ᴛɪᴍᴇ ᴛᴀᴋᴇɴ - <code>{seconds} sᴇᴄᴏɴᴅs</code></b>")
+            await safe_send(admin, f"<b>✅ ʙᴏᴛ ʀᴇsᴛᴀʀᴛᴇᴅ\n🕥 ᴛɪᴍᴇ ᴛᴀᴋᴇɴ - <code>{seconds} sᴇᴄᴏɴᴅs</code></b>")
 
     async def stop(self, *args):
+        try:
+            from plugins.index import shutdown_index_client
+            await shutdown_index_client()
+        except Exception:
+            pass
+        try:
+            runner = getattr(self, "_web_runner", None)
+            if runner:
+                await runner.cleanup()
+        except Exception:
+            pass
         await super().stop()
-        print("Bot stopped.")
+        print("Bot stopped; saved index jobs will resume on next start.")
     
     # Safe batched iterator used by /index. get_messages is awaited; no async
     # generator is ever awaited here.
