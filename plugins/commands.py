@@ -9,7 +9,7 @@ from Script import script
 from pyrogram import Client, filters, enums
 from pyrogram.errors import ChatAdminRequired, FloodWait
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from database.ia_filterdb import Media, get_file_details, get_bad_files, unpack_new_file_id, ensure_indexes
+from database.ia_filterdb import Media, get_file_details, get_bad_files, unpack_new_file_id, ensure_indexes, send_cached_media_resolved
 from database.users_chats_db import db
 from info import ADMINS, THREE_VERIFY_GAP, LOG_CHANNEL, USERNAME, VERIFY_IMG, IS_VERIFY, FILE_CAPTION, AUTH_CHANNEL, SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2, LOG_API_CHANNEL, TWO_VERIFY_GAP, QR_CODE, DELETE_TIME, LINK_MODE, REQUEST_CHANNEL, SHORTENER_WEBSITE3, SHORTENER_API3
 from utils import get_settings, save_group_settings, is_req_subscribed, get_size, get_shortlink, is_check_admin, get_status, temp, get_readable_time
@@ -143,33 +143,28 @@ async def start(client:Client, message):
     settings = await get_settings(grp_id)  
     
     try:
-        force_channel = await db.get_fsub_channel_id(int(grp_id))     
-        print(f"{force_channel}")
-        try:
-            member = await client.get_chat_member(int(force_channel), int(message.from_user.id)) 
-            
-        except:            
+        force_channel = await db.get_fsub_channel_id(int(grp_id))
+        if force_channel is not None:
             try:
-                invite_link = await client.create_chat_invite_link(int(force_channel))
-                print(f"{invite_link}")
-                btn = [
-                     [                 
-                        InlineKeyboardButton("↗️ Join here ↗️", url=invite_link.invite_link),               
-                     ],
-                     [
-                        InlineKeyboardButton("🔄 Try Again 🔄", url=f"https://t.me/{temp.U_NAME}?start={data}")
-                     ]
-                ]
-                await client.send_message(message.from_user.id, f"<b>👋 ʜᴇʏ {message.from_user.mention}\n\nᴊᴏɪɴ ᴏᴜʀ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ʙᴇʟᴏᴡ. ʙᴏᴛ ᴡɪʟʟ ɴᴏᴛ ɢɪᴠᴇ ʏᴏᴜ ᴍᴏᴠɪᴇ ᴜɴᴛɪʟ ʏᴏᴜ ᴊᴏɪɴ ꜰʀᴏᴍ ᴏᴜʀ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ...😊\n\n</b>", reply_markup=InlineKeyboardMarkup(btn))
-                return             
-            except Exception as e :
-               print(f"{e}")
-               
-            
-    except Exception as e :
-        print(f"{e}")
-        pass
-                
+                await client.get_chat_member(int(force_channel), int(message.from_user.id))
+            except Exception:
+                try:
+                    invite_link = await client.create_chat_invite_link(int(force_channel))
+                    btn = [
+                        [InlineKeyboardButton("↗️ Join here ↗️", url=invite_link.invite_link)],
+                        [InlineKeyboardButton("🔄 Try Again 🔄", url=f"https://t.me/{temp.U_NAME}?start={data}")]
+                    ]
+                    await client.send_message(
+                        message.from_user.id,
+                        f"<b>👋 ʜᴇʏ {message.from_user.mention}\n\nᴊᴏɪɴ ᴏᴜʀ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ʙᴇʟᴏᴡ. ʙᴏᴛ ᴡɪʟʟ ɴᴏᴛ ɢɪᴠᴇ ʏᴏᴜ ᴍᴏᴠɪᴇ ᴜɴᴛɪʟ ʏᴏᴜ ᴊᴏɪɴ ꜰʀᴏᴍ ᴏᴜʀ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ...😊\n\n</b>",
+                        reply_markup=InlineKeyboardMarkup(btn),
+                    )
+                    return
+                except Exception as exc:
+                    print(f"Force-sub invite warning: {exc}")
+    except Exception as exc:
+        print(f"Force-sub check warning: {exc}")
+
     user_id = m.from_user.id
     if not await db.has_premium_access(user_id):
         grp_id = int(grp_id)
@@ -223,9 +218,10 @@ async def start(client:Client, message):
             btn=[[
                 InlineKeyboardButton("✛ ᴡᴀᴛᴄʜ & ᴅᴏᴡɴʟᴏᴀᴅ ✛", callback_data=f'stream#{file.file_id}')
             ]]
-            await client.send_cached_media(
+            await send_cached_media_resolved(
+                client,
                 chat_id=message.from_user.id,
-                file_id=file.file_id,
+                file_key=file.file_id,
                 caption=f_caption,
                 protect_content=settings['file_secure'],
                 reply_markup=InlineKeyboardMarkup(btn)
@@ -247,9 +243,10 @@ async def start(client:Client, message):
     btn = [[
         InlineKeyboardButton("✛ ᴡᴀᴛᴄʜ & ᴅᴏᴡɴʟᴏᴀᴅ ✛", callback_data=f'stream#{file_id}')
     ]]
-    d=await client.send_cached_media(
+    d=await send_cached_media_resolved(
+        client,
         chat_id=message.from_user.id,
-        file_id=file_id,
+        file_key=file_id,
         caption=f_caption,
         protect_content=settings['file_secure'],
         reply_markup=InlineKeyboardMarkup(btn)

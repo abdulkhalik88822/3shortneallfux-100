@@ -16,7 +16,7 @@ from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait, UserIsBlocked, MessageNotModified, PeerIdInvalid, ChatAdminRequired
 from utils import temp, get_settings, is_check_admin, get_status, get_hash, get_name, get_size, save_group_settings, is_req_subscribed, get_poster, get_status, get_readable_time
 from database.users_chats_db import db
-from database.ia_filterdb import Media, get_search_results, get_bad_files, get_file_details
+from database.ia_filterdb import Media, get_search_results, get_bad_files, get_file_details, send_cached_media_resolved
 
 lock = asyncio.Lock()
 
@@ -350,9 +350,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
             file_size = get_size(files.file_size),
             file_caption = files.caption
         )
-        await client.send_cached_media(
+        await send_cached_media_resolved(
+            client,
             chat_id=query.from_user.id,
-            file_id=file_id,
+            file_key=file_id,
             caption=f_caption,
             protect_content=settings['file_secure'],
             reply_markup=InlineKeyboardMarkup(
@@ -368,7 +369,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         file_id = query.data.split('#', 1)[1]
         try:
             await query.answer("⚡ Preparing secure stream...", cache_time=0)
-            aks = await client.send_cached_media(chat_id=BIN_CHANNEL, file_id=file_id)
+            aks = await send_cached_media_resolved(client, chat_id=BIN_CHANNEL, file_key=file_id)
             raw_base = str(URL or "").strip().rstrip("/")
             if raw_base.startswith(("http://", "https://")):
                 base_url = raw_base
