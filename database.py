@@ -14,14 +14,9 @@ collection = db[COLLECTION_NAME]
 # -------------------------------
 def clean_query(text):
     text = text.lower()
-
-    # remove special chars
     text = re.sub(r'[^a-z0-9\s]', ' ', text)
-
-    # normalize season/episode
     text = re.sub(r'\bseason\s*(\d+)\b', r's\1', text)
     text = re.sub(r'\bepisode\s*(\d+)\b', r'e\1', text)
-
     return text.strip()
 
 # -------------------------------
@@ -46,13 +41,11 @@ def calculate_score(item, words):
     caption = item.get("caption", "").lower()
 
     score = 0
-
     for w in words:
         if w in name:
-            score += 3   # file_name ज्यादा important
+            score += 3
         if w in caption:
             score += 1
-
     return score
 
 # -------------------------------
@@ -65,7 +58,6 @@ async def search_movies(search, limit=50):
     words = search.split()
     and_conditions = []
 
-    # ✅ STRICT WORD MATCH (WORD BOUNDARY)
     for word in words:
         and_conditions.append({
             "$or": [
@@ -74,32 +66,16 @@ async def search_movies(search, limit=50):
             ]
         })
 
-    # ✅ YEAR FILTER
     if parts["year"]:
-        and_conditions.append({
-            "file_name": {"$regex": parts["year"], "$options": "i"}
-        })
-
-    # ✅ SEASON FILTER
+        and_conditions.append({"file_name": {"$regex": parts["year"], "$options": "i"}})
     if parts["season"]:
-        and_conditions.append({
-            "file_name": {"$regex": parts["season"], "$options": "i"}
-        })
-
-    # ✅ EPISODE FILTER
+        and_conditions.append({"file_name": {"$regex": parts["season"], "$options": "i"}})
     if parts["episode"]:
-        and_conditions.append({
-            "file_name": {"$regex": parts["episode"], "$options": "i"}
-        })
+        and_conditions.append({"file_name": {"$regex": parts["episode"], "$options": "i"}})
 
-    # 🔥 FINAL QUERY
     final_query = {"$and": and_conditions} if and_conditions else {}
-
     results = await collection.find(final_query).limit(limit).to_list(length=limit)
-
-    # 🧠 SORT BY RELEVANCE
     results = sorted(results, key=lambda x: calculate_score(x, words), reverse=True)
-
     return results
 
 # -------------------------------
