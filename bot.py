@@ -73,8 +73,6 @@ class Bot(Client):
         await super().stop()
         print("Bot stopped.")
     
-    # Safe batched iterator used by /index. get_messages is awaited; no async
-    # generator is ever awaited here.
     async def iter_messages(
         self,
         chat_id: Union[int, str],
