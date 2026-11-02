@@ -433,7 +433,7 @@ async def send_request(bot, message):
     btn = [[
          InlineKeyboardButton('✨ ᴠɪᴇᴡ ʏᴏᴜʀ ʀᴇǫᴜᴇꜱᴛ ✨', url=f"{sent_request.link}")
     ]]
-    await message.reply_text("<b>✅ sᴜᴄᴄᴇꜱꜱғᴜʟʟʏ ʏᴏᴜʀ ʀᴇǫᴜᴇꜱᴛ ʜᴀꜱ ʙᴇᴇɴ ᴀᴅᴅᴇᴅ, ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ ꜱᴏᴍᴇᴛɪᴍᴇ...</b>", reply_markup=InlineKeyboardMarkup(btn))
+    await message.reply_text("<b>✅ sᴜᴄᴄᴇssғᴜʟʟʏ ʏᴏᴜʀ ʀᴇǫᴜᴇꜱᴛ ʜᴀꜱ ʙᴇᴇɴ ᴀᴅᴅᴇᴅ, ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ ꜱᴏᴍᴇᴛɪᴍᴇ...</b>", reply_markup=InlineKeyboardMarkup(btn))
 
 @Client.on_message(filters.command("search"))
 async def search_files(bot, message):
@@ -465,7 +465,7 @@ async def search_files(bot, message):
 @Client.on_message(filters.command("deletefiles"))
 async def deletemultiplefiles(bot, message):
     if message.from_user.id not in ADMINS:
-        await message.reply('ᴏɴʟʏ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ... 😑')
+        await message.reply('ᴏɴʟʏ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜꜱᴇ ᴛʜɪꜱ ᴄᴏᴍᴍᴀɴᴅ... 😑')
         return
     chat_type = message.chat.type
     if chat_type != enums.ChatType.PRIVATE:
@@ -709,7 +709,6 @@ async def set_shortner_3(c, m):
         return await m.reply(f"<b>⚠️ ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴀᴅᴍɪɴ ᴏꜰ ᴛʜɪs ɢʀᴏᴜᴘ</b>")
     chat_type = m.chat.type
     
-    # 🔥 FIX: Private Chat में यह कमांड काम नहीं करेगी
     if chat_type == enums.ChatType.PRIVATE:
         await m.reply_text("<b>⚠️ यह कमांड सिर्फ ग्रुप में काम करेगी, प्राइवेट में नहीं।</b>", quote=True)
         return
@@ -800,7 +799,7 @@ async def on_force_sub(client, message):
         return await message.reply("<b>ʏᴏᴜ ᴀʀᴇ ᴀɴᴏɴʏᴍᴏᴜꜱ ᴀᴅᴍɪɴ ɪɴ ᴛʜɪꜱ ɢʀᴏᴜᴘ...</b>")
     chat_type = message.chat.type
     if chat_type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("<b>ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪɴ ɢʀᴏᴜᴘ...</b>")       
+        return await message.reply_text("<b>ᴜsᴇ ᴛʜɪꜱ ᴄᴏᴍᴍᴀɴᴅ ɪɴ ɢʀᴏᴜᴘ...</b>")       
     grp_id = message.chat.id
     grpid = message.chat.id
     title = message.chat.title
@@ -825,7 +824,7 @@ async def off_force_sub(client, message):
         return await message.reply("<b>ʏᴏᴜ ᴀʀᴇ ᴀɴᴏɴʏᴍᴏᴜꜱ ᴀᴅᴍɪɴ ɪɴ ᴛʜɪꜱ ɢʀᴏᴜᴘ...</b>")
     chat_type = message.chat.type
     if chat_type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("<b>ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪɴ ɢʀᴏᴜᴘ...</b>")       
+        return await message.reply_text("<b>ᴜsᴇ ᴛʜɪꜱ ᴄᴏᴍᴍᴀɴᴅ ɪɴ ɢʀᴏᴜᴘ...</b>")       
     grp_id = message.chat.id
     grpid = message.chat.id
     title = message.chat.title
@@ -873,3 +872,42 @@ async def earnings_stats(client, message):
     text += f"\n💡 <i>हर Verification आपके Shortner पर एक क्लिक है। जितना ज्यादा Verification, उतनी ज्यादा कमाई!</i>"
     
     await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
+
+# ================= NEW DATABASE CLEANUP COMMANDS =================
+
+@Client.on_message(filters.command("purgedb") & filters.user(ADMINS))
+async def purge_database(bot, message):
+    status = await message.reply_text("🧹 **Database Cleanup Started...**\n\nDropping heavy collections (Verify logs, Earnings, Misc data)...")
+    
+    # Importing database instances
+    from database.users_chats_db import mydb as user_db
+    from database.ia_filterdb import mydb as media_db
+    
+    try:
+        # Drop verification logs and earnings (space killers)
+        await user_db.verify_id.drop()
+        await user_db.earnings.drop()
+        await user_db.misc.drop()
+        await user_db.requests.drop()
+        await media_db["index_jobs"].drop()
+        
+        await status.edit_text("✅ **Cleanup Complete!**\n\nHeavy collections (Verify logs, Earnings, Misc data, Index jobs) have been dropped.\n\nAgar phir bhi space full ka error aaye, toh `/purgeusers` command use karein.")
+    except Exception as e:
+        await status.edit_text(f"❌ **Error during cleanup:**\n`{e}`")
+
+@Client.on_message(filters.command("purgeusers") & filters.user(ADMINS))
+async def purge_users(bot, message):
+    status = await message.reply_text("🧹 **Purging Users & Groups...** (Please wait)")
+    
+    from database.users_chats_db import mydb as user_db
+    
+    try:
+        # Drop Users and Groups collections
+        await user_db.users.drop()
+        await user_db.uersz.drop() 
+        await user_db.groups.drop()
+        await user_db.groupsz.drop()
+        
+        await status.edit_text("✅ **Users and Groups completely purged!**\n\nBot is now fresh. All users and groups have been removed from the database. Existing users will be re-added automatically when they send /start.")
+    except Exception as e:
+        await status.edit_text(f"❌ **Error during user purge:**\n`{e}`")
