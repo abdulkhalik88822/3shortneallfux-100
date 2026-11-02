@@ -66,22 +66,39 @@ async def start(client:Client, message):
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         status = get_status()
         is_chat = await db.get_chat(message.chat.id)
+        
+        # 🔥 FIX: DB FULL HONE PAR CRASH NA HO
         if not is_chat:
-            await db.add_chat(message.chat.id, message.chat.title)
+            try:
+                await db.add_chat(message.chat.id, message.chat.title)
+            except Exception as e:
+                print(f"Database Full (Chat not added): {e}")
+                
         aks = await message.reply_text(f"<b>🔥 ʏᴇs {status},\nʜᴏᴡ ᴄᴀɴ ɪ ʜᴇʟᴘ ʏᴏᴜ??</b>")
         await asyncio.sleep(600)
         await aks.delete()
         await m.delete()
+        
         if (str(message.chat.id)).startswith("-100") and not await db.get_chat(message.chat.id):
             total=await client.get_chat_members_count(message.chat.id)
             group_link = await message.chat.export_invite_link()
             user = message.from_user.mention if message.from_user else "Dear" 
-            await client.send_message(LOG_CHANNEL, script.NEW_GROUP_TXT.format(temp.B_LINK, message.chat.title, message.chat.id, message.chat.username, group_link, total, user))       
-            await db.add_chat(message.chat.id, message.chat.title)
+            try:
+                await client.send_message(LOG_CHANNEL, script.NEW_GROUP_TXT.format(temp.B_LINK, message.chat.title, message.chat.id, message.chat.username, group_link, total, user))       
+                await db.add_chat(message.chat.id, message.chat.title)
+            except Exception as e:
+                print(f"Database Full (Group log not sent): {e}")
         return 
+        
+    # 🔥 FIX: DB FULL HONE PAR CRASH NA HO (User add)
     if not await db.is_user_exist(message.from_user.id):
-        await db.add_user(message.from_user.id, message.from_user.first_name)
-        await client.send_message(LOG_CHANNEL, script.NEW_USER_TXT.format(temp.B_LINK, message.from_user.id, message.from_user.mention))
+        try:
+            await db.add_user(message.from_user.id, message.from_user.first_name)
+            await client.send_message(LOG_CHANNEL, script.NEW_USER_TXT.format(temp.B_LINK, message.from_user.id, message.from_user.mention))
+        except Exception as e:
+            print(f"Database Full (User not added): {e}")
+            # Yahan error catch ho gaya, code aage badhega
+            
     if len(message.command) != 2:
         buttons = [[
             InlineKeyboardButton('⇆ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘs ⇆', url=f'http://t.me/{temp.U_NAME}?startgroup=start')
@@ -261,7 +278,6 @@ async def delete(bot, message):
     if message.from_user.id not in ADMINS:
         await message.reply('ᴏɴʟʏ ᴛʜᴇ ʙᴏᴛ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ... 😑')
         return
-    """Delete file from database"""
     reply = message.reply_to_message
     if reply and reply.media:
         msg = await message.reply("ᴘʀᴏᴄᴇssɪɴɢ...⏳", quote=True)
@@ -879,12 +895,10 @@ async def earnings_stats(client, message):
 async def purge_database(bot, message):
     status = await message.reply_text("🧹 **Database Cleanup Started...**\n\nDropping heavy collections (Verify logs, Earnings, Misc data)...")
     
-    # Importing database instances
     from database.users_chats_db import mydb as user_db
     from database.ia_filterdb import mydb as media_db
     
     try:
-        # Drop verification logs and earnings (space killers)
         await user_db.verify_id.drop()
         await user_db.earnings.drop()
         await user_db.misc.drop()
@@ -902,7 +916,6 @@ async def purge_users(bot, message):
     from database.users_chats_db import mydb as user_db
     
     try:
-        # Drop Users and Groups collections
         await user_db.users.drop()
         await user_db.uersz.drop() 
         await user_db.groups.drop()
